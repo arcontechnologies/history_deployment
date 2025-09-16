@@ -1,0 +1,1 @@
+https://platform-inventory.be.net.intra/service/v1/components?sort=-LastActivityOn
