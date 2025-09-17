@@ -1,0 +1,30 @@
+2025-09-17 17:46:30.8191 INFO PlatformInventoryApp.Program Application started 
+2025-09-17 17:46:30.9892 INFO PlatformInventoryApp.Program Loading configuration 
+2025-09-17 17:46:31.0193 INFO PlatformInventoryApp.Program Configuration loaded - Table: [DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY], PageSize: 500 
+2025-09-17 17:46:34.5580 INFO PlatformInventoryApp.Program Starting history load 
+2025-09-17 17:46:34.5676 INFO PlatformInventoryApp.Program Processing page with offset: 0 
+2025-09-17 17:46:34.6565 ERROR PlatformInventoryApp.Program Error processing offset 0 System.IO.FileLoadException: Could not load file or assembly 'Newtonsoft.Json, Version=13.0.3.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed' or one of its dependencies. The located assembly's manifest definition does not match the assembly reference. (Exception from HRESULT: 0x80131040)
+File name: 'Newtonsoft.Json, Version=13.0.3.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed' ---> System.IO.FileLoadException: Could not load file or assembly 'Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed' or one of its dependencies. The located assembly's manifest definition does not match the assembly reference. (Exception from HRESULT: 0x80131040)
+File name: 'Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed'
+
+=== Pre-bind state information ===
+LOG: DisplayName = Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed
+ (Fully-specified)
+LOG: Appbase = file:///D:/Se-DMS/APPS/PlatformInventoryApp/bin/Debug/
+LOG: Initial PrivatePath = NULL
+Calling assembly : PlatformInventoryApp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null.
+===
+LOG: This bind starts in default load context.
+LOG: Using application configuration file: D:\Se-DMS\APPS\PlatformInventoryApp\bin\Debug\PlatformInventoryApp.exe.Config
+LOG: Using host configuration file: 
+LOG: Using machine configuration file from C:\Windows\Microsoft.NET\Framework\v4.0.30319\config\machine.config.
+LOG: Redirect found in application configuration file: 13.0.0.0 redirected to 13.0.3.0.
+LOG: Post-policy reference: Newtonsoft.Json, Version=13.0.3.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed
+LOG: Attempting download of new URL file:///D:/Se-DMS/APPS/PlatformInventoryApp/bin/Debug/Newtonsoft.Json.DLL.
+WRN: Comparing the assembly name resulted in the mismatch: Build Number
+ERR: Failed to complete setup of assembly (hr = 0x80131040). Probing terminated.
+
+   at PlatformInventoryApp.Program.<GetApiDataWithRetry>d__15.MoveNext()
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.Start[TStateMachine](TStateMachine& stateMachine)
+   at PlatformInventoryApp.Program.GetApiDataWithRetry(Int32 offset)
+   at PlatformInventoryApp.Program.<LoadHistory>d__12.MoveNext() in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 137
