@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using NLog;
 using ClosedXML.Excel;
 using System.IO;
@@ -257,7 +258,18 @@ namespace PlatformInventoryApp
                     logger.Debug($"Calling API: {url}");
                     
                     var response = await httpClient.GetStringAsync(url);
-                    var apiResponse = JsonConvert.DeserializeObject<ApiResponse>(response);
+                    
+                    // Log first 500 characters of response for debugging
+                    logger.Debug($"API Response (first 500 chars): {response.Substring(0, Math.Min(response.Length, 500))}");
+                    
+                    var settings = new JsonSerializerSettings
+                    {
+                        NullValueHandling = NullValueHandling.Ignore,
+                        MissingMemberHandling = MissingMemberHandling.Ignore,
+                        Error = HandleDeserializationError
+                    };
+                    
+                    var apiResponse = JsonConvert.DeserializeObject<ApiResponse>(response, settings);
                     
                     logger.Debug($"API call successful. Received {apiResponse?.List?.Count ?? 0} records");
                     return apiResponse;
@@ -278,6 +290,12 @@ namespace PlatformInventoryApp
             }
             
             return null;
+        }
+
+        private static void HandleDeserializationError(object sender, Newtonsoft.Json.Serialization.ErrorEventArgs e)
+        {
+            logger.Warn($"JSON Deserialization warning at path '{e.ErrorContext.Path}': {e.ErrorContext.Error.Message}");
+            e.ErrorContext.Handled = true; // Continue processing
         }
         private static async Task BulkInsertData(List<ComponentData> components)
         {
@@ -359,8 +377,8 @@ namespace PlatformInventoryApp
             row["ApplicationCode"] = component.ApplicationCode ?? string.Empty;
             row["ApplicationCodeAUID"] = component.ApplicationCodeAUID ?? string.Empty;
             row["Code"] = component.Code ?? string.Empty;
-            row["ComponentType"] = component.ComponentType ?? string.Empty;
-            row["Description"] = component.Description ?? string.Empty;
+            row["ComponentType"] = ConvertToString(component.ComponentType);
+            row["Description"] = ConvertToString(component.Description);
             row["GitLabProjectId"] = component.GitLabProjectId?.ToString() ?? string.Empty;
             row["GitLabProjectInformation"] = component.GitLabProjectInformation ?? string.Empty;
             row["GitLabProjectName"] = component.GitLabProjectName ?? string.Empty;
@@ -392,6 +410,23 @@ namespace PlatformInventoryApp
                 ? string.Join(",", component.UnitContributionUnitName) : string.Empty;
             row["UnitContributionUnitTypes"] = component.UnitContributionUnitType != null && component.UnitContributionUnitType.Any() 
                 ? string.Join(",", component.UnitContributionUnitType) : string.Empty;
+        }
+
+        private static string ConvertToString(object value)
+        {
+            if (value == null) return string.Empty;
+            
+            if (value is string) return (string)value;
+            
+            // If it's an object, serialize it to JSON string
+            try
+            {
+                return JsonConvert.SerializeObject(value);
+            }
+            catch
+            {
+                return value.ToString();
+            }
         }
 
         private static void DeleteCurrentDateRecords(DateTime currentDate)
@@ -512,10 +547,10 @@ namespace PlatformInventoryApp
         public string Code { get; set; }
 
         [JsonProperty("ComponentType")]
-        public string ComponentType { get; set; }
+        public object ComponentType { get; set; }
 
         [JsonProperty("Description")]
-        public string Description { get; set; }
+        public object Description { get; set; }
 
         [JsonProperty("GitLabProjectId")]
         public int? GitLabProjectId { get; set; }
