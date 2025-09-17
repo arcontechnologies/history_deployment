@@ -36,13 +36,53 @@ namespace PlatformInventoryApp
                 logger.Info("Application started");
                 LoadConfiguration();
 
-                // Setup (comment these after first execution)
-                CreateSqlTable();
-                await LoadHistory();
+                // Parse command line arguments
+                if (args.Length == 0)
+                {
+                    ShowHelp();
+                    return 0;
+                }
 
-                // Daily run
-                await LoadDaily();
-                await SaveToXlsx();
+                var command = args[0].ToLower();
+
+                switch (command)
+                {
+                    case "--create":
+                        logger.Info("Creating SQL table...");
+                        CreateSqlTable();
+                        logger.Info("SQL table creation completed");
+                        break;
+
+                    case "--history":
+                        logger.Info("Starting history load (will delete existing data)...");
+                        DeleteAllRecords();
+                        await LoadHistory();
+                        logger.Info("History load completed");
+                        break;
+
+                    case "--daily":
+                        logger.Info("Starting daily operations...");
+                        await LoadDaily();
+                        await SaveToXlsx();
+                        logger.Info("Daily operations completed");
+                        break;
+
+                    case "--save":
+                        logger.Info("Exporting data to Excel...");
+                        await SaveToXlsx();
+                        logger.Info("Excel export completed");
+                        break;
+
+                    case "--help":
+                    case "-h":
+                        ShowHelp();
+                        break;
+
+                    default:
+                        logger.Error($"Unknown command: {args[0]}");
+                        ShowHelp();
+                        return -1;
+                }
 
                 logger.Info("Application completed successfully");
                 return 0;
@@ -56,6 +96,32 @@ namespace PlatformInventoryApp
             {
                 httpClient?.Dispose();
             }
+        }
+
+        private static void ShowHelp()
+        {
+            Console.WriteLine();
+            Console.WriteLine("Platform Inventory Application");
+            Console.WriteLine("=============================");
+            Console.WriteLine();
+            Console.WriteLine("Usage:");
+            Console.WriteLine("  PlatformInventoryApp [command]");
+            Console.WriteLine();
+            Console.WriteLine("Commands:");
+            Console.WriteLine("  --create    Create SQL Server table");
+            Console.WriteLine("  --history   Delete all records and load complete history from API");
+            Console.WriteLine("  --daily     Load today's data and export to Excel");
+            Console.WriteLine("  --save      Export current database data to Excel file");
+            Console.WriteLine("  --help      Show this help information");
+            Console.WriteLine();
+            Console.WriteLine("Examples:");
+            Console.WriteLine("  PlatformInventoryApp --create");
+            Console.WriteLine("  PlatformInventoryApp --history");
+            Console.WriteLine("  PlatformInventoryApp --daily");
+            Console.WriteLine("  PlatformInventoryApp --save");
+            Console.WriteLine();
+            Console.WriteLine("Configuration is managed through App.config file.");
+            Console.WriteLine();
         }
 
         private static void LoadConfiguration()
@@ -81,7 +147,7 @@ namespace PlatformInventoryApp
             
             var createTableScript = $@"
                 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='{tableName}' AND xtype='U')
-                CREATE TABLE [{tableName}] (
+                CREATE TABLE {tableName} (
                     [ApplicationCode] VARCHAR(1000),
                     [ApplicationCodeAUID] VARCHAR(1000),
                     [Code] VARCHAR(1000),
@@ -231,7 +297,7 @@ namespace PlatformInventoryApp
             var dateString = date.ToString("yyyy-MM-dd");
             var checkQuery = $@"
                 SELECT COUNT(1) 
-                FROM [{tableName}] 
+                FROM {tableName} 
                 WHERE [LastActivityOn] LIKE @DatePattern";
 
             using (var connection = new SqlConnection(connectionString))
@@ -435,7 +501,7 @@ namespace PlatformInventoryApp
             
             var dateString = currentDate.ToString("yyyy-MM-dd");
             var deleteQuery = $@"
-                DELETE FROM [{tableName}] 
+                DELETE FROM {tableName} 
                 WHERE [LastActivityOn] LIKE @DatePattern";
 
             using (var connection = new SqlConnection(connectionString))
@@ -449,11 +515,30 @@ namespace PlatformInventoryApp
                 }
             }
         }
+
+        private static void DeleteAllRecords()
+        {
+            logger.Info("Deleting all existing records from table");
+            
+            var deleteQuery = $"DELETE FROM {tableName}";
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand(deleteQuery, connection))
+                {
+                    command.CommandTimeout = 300; // 5 minutes for large deletes
+                    var deletedRows = command.ExecuteNonQuery();
+                    logger.Info($"Deleted {deletedRows} existing records from table");
+                }
+            }
+        }
+
         private static async Task SaveToXlsx()
         {
             logger.Info("Starting Excel export");
             
-            var query = $"SELECT * FROM [{tableName}] ORDER BY [LastActivityOn] DESC";
+            var query = $"SELECT * FROM {tableName} ORDER BY [LastActivityOn] DESC";
             var dataTable = new DataTable();
             
             using (var connection = new SqlConnection(connectionString))
