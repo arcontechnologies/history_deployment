@@ -2,3 +2,11 @@ https://platform-inventory.be.net.intra/service/v1/components?sort=-LastActivity
 
 limit=500&offset=0 => les 500 premiers records
 limit=500&offset=500 => records 500 à 1000
+
+"pageInfo":{
+  "isFirstPage" : true,
+  "isLastPage" : false,
+  "page" : 1,
+  "pageSize" : 1000
+  "totalRows" : 3219
+}
