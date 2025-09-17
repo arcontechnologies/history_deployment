@@ -1,1 +1,4 @@
 https://platform-inventory.be.net.intra/service/v1/components?sort=-LastActivityOn
+
+limit=500&offset=0 => les 500 premiers records
+limit=500&offset=500 => records 500 à 1000
