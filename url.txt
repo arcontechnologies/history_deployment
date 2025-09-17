@@ -1,7 +1,9 @@
 https://platform-inventory.be.net.intra/service/v1/components?sort=-LastActivityOn
 
-limit=500&offset=0 => les 500 premiers records
-limit=500&offset=500 => records 500 à 1000
+limit=500&offset=0 => the first 500 records
+limit=500&offset=500 => records 500 to 1000
+
+each retreived data  contains this info : In cas of pagination you can check if you reached the end of data ("isLastPage" : true) or not
 
 "pageInfo":{
   "isFirstPage" : true,
