@@ -81,41 +81,38 @@ namespace PlatformInventoryApp
             var createTableScript = $@"
                 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='{tableName}' AND xtype='U')
                 CREATE TABLE [{tableName}] (
-                    [Id] INT IDENTITY(1,1) PRIMARY KEY,
-                    [ApplicationCode] NVARCHAR(50),
-                    [ApplicationCodeAUID] NVARCHAR(50),
-                    [Code] NVARCHAR(100),
-                    [ComponentType] NVARCHAR(100),
-                    [Description] NVARCHAR(MAX),
-                    [GitLabProjectId] INT,
-                    [GitLabProjectInformation] NVARCHAR(500),
-                    [GitLabProjectName] NVARCHAR(200),
-                    [GitLabProjectSource] NVARCHAR(100),
-                    [GitLabProjectWebURL] NVARCHAR(500),
-                    [ComponentId] INT,
-                    [IsGitLabProjectArchived] NVARCHAR(10),
-                    [IsOnboarded] INT,
-                    [LastActivityOn] DATETIME2,
-                    [MappingAsSource] INT,
-                    [MappingAsTarget] INT,
-                    [OnboardedOn] DATETIME2,
-                    [OnboardingCandidate] INT,
-                    [OnboardingStatus] NVARCHAR(50),
-                    [OwnerUnitId] INT,
-                    [OwnerUnitName] NVARCHAR(200),
-                    [OwnerUnitType] NVARCHAR(100),
-                    [PlatformHome] NVARCHAR(500),
-                    [PlatformName] NVARCHAR(100),
-                    [ScanProjectCode] NVARCHAR(100),
-                    [SquadSecurityCode] NVARCHAR(100),
-                    [TargetName] NVARCHAR(100),
-                    [TribeSecurityCode] NVARCHAR(100),
-                    [Type] NVARCHAR(100),
-                    [UnitContributionUnitIds] NVARCHAR(MAX),
-                    [UnitContributionUnitNames] NVARCHAR(MAX),
-                    [UnitContributionUnitTypes] NVARCHAR(MAX),
-                    [CreatedDate] DATETIME2 DEFAULT GETDATE(),
-                    [UpdatedDate] DATETIME2 DEFAULT GETDATE()
+                    [ApplicationCode] VARCHAR(1000),
+                    [ApplicationCodeAUID] VARCHAR(1000),
+                    [Code] VARCHAR(1000),
+                    [ComponentType] VARCHAR(1000),
+                    [Description] VARCHAR(1000),
+                    [GitLabProjectId] VARCHAR(1000),
+                    [GitLabProjectInformation] VARCHAR(1000),
+                    [GitLabProjectName] VARCHAR(1000),
+                    [GitLabProjectSource] VARCHAR(1000),
+                    [GitLabProjectWebURL] VARCHAR(1000),
+                    [ComponentId] VARCHAR(1000),
+                    [IsGitLabProjectArchived] VARCHAR(1000),
+                    [IsOnboarded] VARCHAR(1000),
+                    [LastActivityOn] VARCHAR(1000),
+                    [MappingAsSource] VARCHAR(1000),
+                    [MappingAsTarget] VARCHAR(1000),
+                    [OnboardedOn] VARCHAR(1000),
+                    [OnboardingCandidate] VARCHAR(1000),
+                    [OnboardingStatus] VARCHAR(1000),
+                    [OwnerUnitId] VARCHAR(1000),
+                    [OwnerUnitName] VARCHAR(1000),
+                    [OwnerUnitType] VARCHAR(1000),
+                    [PlatformHome] VARCHAR(1000),
+                    [PlatformName] VARCHAR(1000),
+                    [ScanProjectCode] VARCHAR(1000),
+                    [SquadSecurityCode] VARCHAR(1000),
+                    [TargetName] VARCHAR(1000),
+                    [TribeSecurityCode] VARCHAR(1000),
+                    [Type] VARCHAR(1000),
+                    [UnitContributionUnitIds] VARCHAR(1000),
+                    [UnitContributionUnitNames] VARCHAR(1000),
+                    [UnitContributionUnitTypes] VARCHAR(1000)
                 )";
 
             ExecuteSqlCommand(createTableScript);
@@ -230,17 +227,18 @@ namespace PlatformInventoryApp
         {
             logger.Info($"Checking if data exists for {date:yyyy-MM-dd}");
             
+            var dateString = date.ToString("yyyy-MM-dd");
             var checkQuery = $@"
                 SELECT COUNT(1) 
                 FROM [{tableName}] 
-                WHERE CAST([LastActivityOn] AS DATE) = @Date";
+                WHERE [LastActivityOn] LIKE @DatePattern";
 
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
                 using (var command = new SqlCommand(checkQuery, connection))
                 {
-                    command.Parameters.AddWithValue("@Date", date);
+                    command.Parameters.AddWithValue("@DatePattern", dateString + "%");
                     var count = (int)command.ExecuteScalar();
                     
                     logger.Info($"Found {count} existing records for {date:yyyy-MM-dd}");
@@ -307,10 +305,7 @@ namespace PlatformInventoryApp
                     // Map columns
                     foreach (DataColumn column in dataTable.Columns)
                     {
-                        if (column.ColumnName != "Id") // Skip identity column
-                        {
-                            bulkCopy.ColumnMappings.Add(column.ColumnName, column.ColumnName);
-                        }
+                        bulkCopy.ColumnMappings.Add(column.ColumnName, column.ColumnName);
                     }
                     
                     await bulkCopy.WriteToServerAsync(dataTable);
@@ -323,27 +318,27 @@ namespace PlatformInventoryApp
         {
             var dataTable = new DataTable();
             
-            // Add columns based on SQL table structure (excluding Id and audit columns)
+            // Add columns based on JSON structure - all VARCHAR(1000)
             dataTable.Columns.Add("ApplicationCode", typeof(string));
             dataTable.Columns.Add("ApplicationCodeAUID", typeof(string));
             dataTable.Columns.Add("Code", typeof(string));
             dataTable.Columns.Add("ComponentType", typeof(string));
             dataTable.Columns.Add("Description", typeof(string));
-            dataTable.Columns.Add("GitLabProjectId", typeof(int));
+            dataTable.Columns.Add("GitLabProjectId", typeof(string));
             dataTable.Columns.Add("GitLabProjectInformation", typeof(string));
             dataTable.Columns.Add("GitLabProjectName", typeof(string));
             dataTable.Columns.Add("GitLabProjectSource", typeof(string));
             dataTable.Columns.Add("GitLabProjectWebURL", typeof(string));
-            dataTable.Columns.Add("ComponentId", typeof(int));
+            dataTable.Columns.Add("ComponentId", typeof(string));
             dataTable.Columns.Add("IsGitLabProjectArchived", typeof(string));
-            dataTable.Columns.Add("IsOnboarded", typeof(int));
-            dataTable.Columns.Add("LastActivityOn", typeof(DateTime));
-            dataTable.Columns.Add("MappingAsSource", typeof(int));
-            dataTable.Columns.Add("MappingAsTarget", typeof(int));
-            dataTable.Columns.Add("OnboardedOn", typeof(DateTime));
-            dataTable.Columns.Add("OnboardingCandidate", typeof(int));
+            dataTable.Columns.Add("IsOnboarded", typeof(string));
+            dataTable.Columns.Add("LastActivityOn", typeof(string));
+            dataTable.Columns.Add("MappingAsSource", typeof(string));
+            dataTable.Columns.Add("MappingAsTarget", typeof(string));
+            dataTable.Columns.Add("OnboardedOn", typeof(string));
+            dataTable.Columns.Add("OnboardingCandidate", typeof(string));
             dataTable.Columns.Add("OnboardingStatus", typeof(string));
-            dataTable.Columns.Add("OwnerUnitId", typeof(int));
+            dataTable.Columns.Add("OwnerUnitId", typeof(string));
             dataTable.Columns.Add("OwnerUnitName", typeof(string));
             dataTable.Columns.Add("OwnerUnitType", typeof(string));
             dataTable.Columns.Add("PlatformHome", typeof(string));
@@ -361,58 +356,59 @@ namespace PlatformInventoryApp
         }
         private static void PopulateDataRow(DataRow row, ComponentData component)
         {
-            row["ApplicationCode"] = component.ApplicationCode ?? (object)DBNull.Value;
-            row["ApplicationCodeAUID"] = component.ApplicationCodeAUID ?? (object)DBNull.Value;
-            row["Code"] = component.Code ?? (object)DBNull.Value;
-            row["ComponentType"] = component.ComponentType ?? (object)DBNull.Value;
-            row["Description"] = component.Description ?? (object)DBNull.Value;
-            row["GitLabProjectId"] = component.GitLabProjectId.HasValue ? (object)component.GitLabProjectId.Value : DBNull.Value;
-            row["GitLabProjectInformation"] = component.GitLabProjectInformation ?? (object)DBNull.Value;
-            row["GitLabProjectName"] = component.GitLabProjectName ?? (object)DBNull.Value;
-            row["GitLabProjectSource"] = component.GitLabProjectSource ?? (object)DBNull.Value;
-            row["GitLabProjectWebURL"] = component.GitLabProjectWebURL ?? (object)DBNull.Value;
-            row["ComponentId"] = component.Id.HasValue ? (object)component.Id.Value : DBNull.Value;
-            row["IsGitLabProjectArchived"] = component.IsGitLabProjectArchived ?? (object)DBNull.Value;
-            row["IsOnboarded"] = component.IsOnboarded.HasValue ? (object)component.IsOnboarded.Value : DBNull.Value;
-            row["LastActivityOn"] = component.LastActivityOn.HasValue ? (object)component.LastActivityOn.Value : DBNull.Value;
-            row["MappingAsSource"] = component.MappingAsSource.HasValue ? (object)component.MappingAsSource.Value : DBNull.Value;
-            row["MappingAsTarget"] = component.MappingAsTarget.HasValue ? (object)component.MappingAsTarget.Value : DBNull.Value;
-            row["OnboardedOn"] = component.OnboardedOn.HasValue ? (object)component.OnboardedOn.Value : DBNull.Value;
-            row["OnboardingCandidate"] = component.OnboardingCandidate.HasValue ? (object)component.OnboardingCandidate.Value : DBNull.Value;
-            row["OnboardingStatus"] = component.OnboardingStatus ?? (object)DBNull.Value;
-            row["OwnerUnitId"] = component.OwnerUnitId.HasValue ? (object)component.OwnerUnitId.Value : DBNull.Value;
-            row["OwnerUnitName"] = component.OwnerUnitName ?? (object)DBNull.Value;
-            row["OwnerUnitType"] = component.OwnerUnitType ?? (object)DBNull.Value;
-            row["PlatformHome"] = component.PlatformHome ?? (object)DBNull.Value;
-            row["PlatformName"] = component.PlatformName ?? (object)DBNull.Value;
-            row["ScanProjectCode"] = component.ScanProjectCode ?? (object)DBNull.Value;
-            row["SquadSecurityCode"] = component.SquadSecurityCode ?? (object)DBNull.Value;
-            row["TargetName"] = component.TargetName ?? (object)DBNull.Value;
-            row["TribeSecurityCode"] = component.TribeSecurityCode ?? (object)DBNull.Value;
-            row["Type"] = component.Type ?? (object)DBNull.Value;            
+            row["ApplicationCode"] = component.ApplicationCode ?? string.Empty;
+            row["ApplicationCodeAUID"] = component.ApplicationCodeAUID ?? string.Empty;
+            row["Code"] = component.Code ?? string.Empty;
+            row["ComponentType"] = component.ComponentType ?? string.Empty;
+            row["Description"] = component.Description ?? string.Empty;
+            row["GitLabProjectId"] = component.GitLabProjectId?.ToString() ?? string.Empty;
+            row["GitLabProjectInformation"] = component.GitLabProjectInformation ?? string.Empty;
+            row["GitLabProjectName"] = component.GitLabProjectName ?? string.Empty;
+            row["GitLabProjectSource"] = component.GitLabProjectSource ?? string.Empty;
+            row["GitLabProjectWebURL"] = component.GitLabProjectWebURL ?? string.Empty;
+            row["ComponentId"] = component.Id?.ToString() ?? string.Empty;
+            row["IsGitLabProjectArchived"] = component.IsGitLabProjectArchived ?? string.Empty;
+            row["IsOnboarded"] = component.IsOnboarded?.ToString() ?? string.Empty;
+            row["LastActivityOn"] = component.LastActivityOn?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty;
+            row["MappingAsSource"] = component.MappingAsSource?.ToString() ?? string.Empty;
+            row["MappingAsTarget"] = component.MappingAsTarget?.ToString() ?? string.Empty;
+            row["OnboardedOn"] = component.OnboardedOn?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty;
+            row["OnboardingCandidate"] = component.OnboardingCandidate?.ToString() ?? string.Empty;
+            row["OnboardingStatus"] = component.OnboardingStatus ?? string.Empty;
+            row["OwnerUnitId"] = component.OwnerUnitId?.ToString() ?? string.Empty;
+            row["OwnerUnitName"] = component.OwnerUnitName ?? string.Empty;
+            row["OwnerUnitType"] = component.OwnerUnitType ?? string.Empty;
+            row["PlatformHome"] = component.PlatformHome ?? string.Empty;
+            row["PlatformName"] = component.PlatformName ?? string.Empty;
+            row["ScanProjectCode"] = component.ScanProjectCode ?? string.Empty;
+            row["SquadSecurityCode"] = component.SquadSecurityCode ?? string.Empty;
+            row["TargetName"] = component.TargetName ?? string.Empty;
+            row["TribeSecurityCode"] = component.TribeSecurityCode ?? string.Empty;
+            row["Type"] = component.Type ?? string.Empty;            
             // Flatten arrays to comma-separated strings
             row["UnitContributionUnitIds"] = component.UnitContributionUnitId != null && component.UnitContributionUnitId.Any() 
-                ? string.Join(",", component.UnitContributionUnitId) : (object)DBNull.Value;
+                ? string.Join(",", component.UnitContributionUnitId) : string.Empty;
             row["UnitContributionUnitNames"] = component.UnitContributionUnitName != null && component.UnitContributionUnitName.Any() 
-                ? string.Join(",", component.UnitContributionUnitName) : (object)DBNull.Value;
+                ? string.Join(",", component.UnitContributionUnitName) : string.Empty;
             row["UnitContributionUnitTypes"] = component.UnitContributionUnitType != null && component.UnitContributionUnitType.Any() 
-                ? string.Join(",", component.UnitContributionUnitType) : (object)DBNull.Value;
+                ? string.Join(",", component.UnitContributionUnitType) : string.Empty;
         }
 
         private static void DeleteCurrentDateRecords(DateTime currentDate)
         {
             logger.Info($"Deleting existing records for {currentDate:yyyy-MM-dd}");
             
+            var dateString = currentDate.ToString("yyyy-MM-dd");
             var deleteQuery = $@"
                 DELETE FROM [{tableName}] 
-                WHERE CAST([LastActivityOn] AS DATE) = @CurrentDate";
+                WHERE [LastActivityOn] LIKE @DatePattern";
 
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
                 using (var command = new SqlCommand(deleteQuery, connection))
                 {
-                    command.Parameters.AddWithValue("@CurrentDate", currentDate);
+                    command.Parameters.AddWithValue("@DatePattern", dateString + "%");
                     var deletedRows = command.ExecuteNonQuery();
                     logger.Info($"Deleted {deletedRows} existing records for current date");
                 }
