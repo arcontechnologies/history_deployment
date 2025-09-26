@@ -1,21 +1,22 @@
 D:\Se-DMS\APPS\PlatformInventoryApp\bin\Debug>PlatformInventoryApp --update-components
-19:25:23.6809 INFO: Application started
-19:25:23.7235 INFO: Loading configuration
-19:25:23.7333 INFO: Raw config - TableName: '[DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY]'
-19:25:23.7333 INFO: Raw config - ComponentsTableName: ''
-19:25:23.7499 WARN: Fixed tableName to deployments table
-19:25:23.7499 WARN: Fixed componentsTableName to inventory table
-19:25:23.7499 INFO: Configuration loaded - Deployments Table: [DMAS].[dbo].[TB_ODS_ARTIFACT_DEPLOYMENTS], Components Table: [DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY], PageSize: 500, Delay: 1000ms
-19:25:23.7695 INFO: Starting component inventory update from deployment data...
-19:25:23.8011 INFO: Starting component inventory update from deployment data
-19:25:23.9919 ERROR: Application failed System.Data.SqlClient.SqlException (0x80131904): Invalid column name 'TargetName'.
+20:46:23.0573 INFO: Application started
+20:46:23.0985 INFO: Loading configuration
+20:46:23.0985 INFO: Raw config - TableName: '[DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY]'
+20:46:23.1144 INFO: Raw config - ComponentsTableName: ''
+20:46:23.1144 WARN: Fixed tableName to deployments table
+20:46:23.1144 WARN: Fixed componentsTableName to inventory table
+20:46:23.1286 INFO: Configuration loaded - Deployments Table: [DMAS].[dbo].[TB_ODS_ARTIFACT_DEPLOYMENTS], Components Table: [DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY], PageSize: 500, Delay: 1000ms
+20:46:23.1286 INFO: Starting component inventory update from deployment data...
+20:46:23.1543 INFO: Starting SIMPLE component update for MARVIN and WCM denormalization
+20:46:23.3183 INFO: === STATUS BEFORE FIX ===
+20:46:23.3349 ERROR: Component update failed System.Data.SqlClient.SqlException (0x80131904): Invalid column name 'TargetName'.
 Invalid column name 'TargetName'.
-Invalid column name 'Code'.
-Invalid column name 'ScanProjectCode'.
 Invalid column name 'TargetName'.
-Invalid column name 'Type'.
-Invalid column name 'PlatformName'.
+Invalid column name 'TargetName'.
+Invalid column name 'TargetName'.
 Invalid column name 'ComponentType'.
+Invalid column name 'ComponentType'.
+Invalid column name 'Description'.
 Invalid column name 'Description'.
    at System.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
    at System.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
@@ -24,20 +25,42 @@ Invalid column name 'Description'.
    at System.Data.SqlClient.SqlDataReader.TryConsumeMetaData()
    at System.Data.SqlClient.SqlDataReader.get_MetaData()
    at System.Data.SqlClient.SqlCommand.FinishExecuteReader(SqlDataReader ds, RunBehavior runBehavior, String resetOptionsString, Boolean isInternal, Boolean forDescribeParameterEncryption, Boolean shouldCacheForAlwaysEncrypted)
-   at System.Data.SqlClient.SqlCommand.CompleteAsyncExecuteReader(Boolean isInternal, Boolean forDescribeParameterEncryption)
-   at System.Data.SqlClient.SqlCommand.InternalEndExecuteReader(IAsyncResult asyncResult, String endMethod, Boolean isInternal)
-   at System.Data.SqlClient.SqlCommand.EndExecuteReaderInternal(IAsyncResult asyncResult)
-   at System.Data.SqlClient.SqlCommand.EndExecuteReaderAsync(IAsyncResult asyncResult)
-   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
---- End of stack trace from previous location where exception was thrown ---
-   at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
-   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
-   at System.Runtime.CompilerServices.TaskAwaiter`1.GetResult()
-   at ArtifactDeploymentsApp.Program.<UpdateComponentsFromDeployments>d__14.MoveNext() in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 215
+   at System.Data.SqlClient.SqlCommand.RunExecuteReaderTds(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, Boolean async, Int32 timeout, Task& task, Boolean asyncWrite, Boolean inRetry, SqlDataReader ds, Boolean describeParameterEncryptionRequest)
+   at System.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, String method, TaskCompletionSource`1 completion, Int32 timeout, Task& task, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry)
+   at System.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, String method)
+   at System.Data.SqlClient.SqlCommand.ExecuteReader(CommandBehavior behavior, String method)
+   at System.Data.SqlClient.SqlCommand.ExecuteReader()
+   at ArtifactDeploymentsApp.Program.ShowComponentStatus(SqlConnection connection) in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 281
+   at ArtifactDeploymentsApp.Program.<UpdateComponentsFromDeployments>d__14.MoveNext() in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 189
+ClientConnectionId:22b88047-3b28-4342-8e8f-9c0c42b42e62
+Error Number:207,State:1,Class:16
+20:46:23.3780 ERROR: Application failed System.Data.SqlClient.SqlException (0x80131904): Invalid column name 'TargetName'.
+Invalid column name 'TargetName'.
+Invalid column name 'TargetName'.
+Invalid column name 'TargetName'.
+Invalid column name 'TargetName'.
+Invalid column name 'ComponentType'.
+Invalid column name 'ComponentType'.
+Invalid column name 'Description'.
+Invalid column name 'Description'.
+   at System.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at System.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at System.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at System.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at System.Data.SqlClient.SqlDataReader.TryConsumeMetaData()
+   at System.Data.SqlClient.SqlDataReader.get_MetaData()
+   at System.Data.SqlClient.SqlCommand.FinishExecuteReader(SqlDataReader ds, RunBehavior runBehavior, String resetOptionsString, Boolean isInternal, Boolean forDescribeParameterEncryption, Boolean shouldCacheForAlwaysEncrypted)
+   at System.Data.SqlClient.SqlCommand.RunExecuteReaderTds(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, Boolean async, Int32 timeout, Task& task, Boolean asyncWrite, Boolean inRetry, SqlDataReader ds, Boolean describeParameterEncryptionRequest)
+   at System.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, String method, TaskCompletionSource`1 completion, Int32 timeout, Task& task, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry)
+   at System.Data.SqlClient.SqlCommand.RunExecuteReader(CommandBehavior cmdBehavior, RunBehavior runBehavior, Boolean returnStream, String method)
+   at System.Data.SqlClient.SqlCommand.ExecuteReader(CommandBehavior behavior, String method)
+   at System.Data.SqlClient.SqlCommand.ExecuteReader()
+   at ArtifactDeploymentsApp.Program.ShowComponentStatus(SqlConnection connection) in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 281
+   at ArtifactDeploymentsApp.Program.<UpdateComponentsFromDeployments>d__14.MoveNext() in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 263
 --- End of stack trace from previous location where exception was thrown ---
    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
    at System.Runtime.CompilerServices.TaskAwaiter.GetResult()
    at ArtifactDeploymentsApp.Program.<Main>d__11.MoveNext() in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 80
-ClientConnectionId:e1c948af-9342-4c01-b43c-d1885c217331
+ClientConnectionId:22b88047-3b28-4342-8e8f-9c0c42b42e62
 Error Number:207,State:1,Class:16
