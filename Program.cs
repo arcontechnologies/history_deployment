@@ -471,26 +471,26 @@ namespace ArtifactDeploymentsApp
             }
             
             // Helios platform fields
-            row["TargetDetails_appArtifactID"] = targetDetails.GetValueOrDefault("appArtifactID", string.Empty);
-            row["TargetDetails_appGroupID"] = targetDetails.GetValueOrDefault("appGroupID", string.Empty);
-            row["TargetDetails_appVersion"] = targetDetails.GetValueOrDefault("appVersion", string.Empty);
-            row["TargetDetails_confArtifactID"] = targetDetails.GetValueOrDefault("confArtifactID", string.Empty);
-            row["TargetDetails_confGroupID"] = targetDetails.GetValueOrDefault("confGroupID", string.Empty);
-            row["TargetDetails_confVersion"] = targetDetails.GetValueOrDefault("confVersion", string.Empty);
-            row["TargetDetails_deployScope"] = targetDetails.GetValueOrDefault("deployScope", string.Empty);
-            row["TargetDetails_landscape"] = targetDetails.GetValueOrDefault("landscape", string.Empty);
+            row["TargetDetails_appArtifactID"] = GetValueOrEmpty(targetDetails, "appArtifactID");
+            row["TargetDetails_appGroupID"] = GetValueOrEmpty(targetDetails, "appGroupID");
+            row["TargetDetails_appVersion"] = GetValueOrEmpty(targetDetails, "appVersion");
+            row["TargetDetails_confArtifactID"] = GetValueOrEmpty(targetDetails, "confArtifactID");
+            row["TargetDetails_confGroupID"] = GetValueOrEmpty(targetDetails, "confGroupID");
+            row["TargetDetails_confVersion"] = GetValueOrEmpty(targetDetails, "confVersion");
+            row["TargetDetails_deployScope"] = GetValueOrEmpty(targetDetails, "deployScope");
+            row["TargetDetails_landscape"] = GetValueOrEmpty(targetDetails, "landscape");
             
             // Marvin platform fields
-            row["TargetDetails_compSpec"] = targetDetails.GetValueOrDefault("compSpec", string.Empty);
-            row["TargetDetails_compSpecVersion"] = targetDetails.GetValueOrDefault("compSpecVersion", string.Empty);
-            row["TargetDetails_logic_env"] = targetDetails.GetValueOrDefault("logic_env", string.Empty);
-            row["TargetDetails_platform"] = targetDetails.GetValueOrDefault("platform", string.Empty);
+            row["TargetDetails_compSpec"] = GetValueOrEmpty(targetDetails, "compSpec");
+            row["TargetDetails_compSpecVersion"] = GetValueOrEmpty(targetDetails, "compSpecVersion");
+            row["TargetDetails_logic_env"] = GetValueOrEmpty(targetDetails, "logic_env");
+            row["TargetDetails_platform"] = GetValueOrEmpty(targetDetails, "platform");
             
             // WCM platform fields
-            row["TargetDetails_ChannelName"] = targetDetails.GetValueOrDefault("ChannelName", string.Empty);
-            row["TargetDetails_TechPlatform"] = targetDetails.GetValueOrDefault("TechPlatform", string.Empty);
-            row["TargetDetails_app_code"] = targetDetails.GetValueOrDefault("app_code", string.Empty);
-            row["TargetDetails_service"] = targetDetails.GetValueOrDefault("service", string.Empty);
+            row["TargetDetails_ChannelName"] = GetValueOrEmpty(targetDetails, "ChannelName");
+            row["TargetDetails_TechPlatform"] = GetValueOrEmpty(targetDetails, "TechPlatform");
+            row["TargetDetails_app_code"] = GetValueOrEmpty(targetDetails, "app_code");
+            row["TargetDetails_service"] = GetValueOrEmpty(targetDetails, "service");
             
             // Log if there are unknown fields in TargetDetails that we're not capturing
             var knownFields = new[]
@@ -510,6 +510,12 @@ namespace ArtifactDeploymentsApp
                 logger.Info($"Unknown TargetDetails fields found for {artifact.TargetPlatform}: {string.Join(", ", unknownFields)}. " +
                            $"ArtifactId: {artifact.ArtifactId}. Consider adding these fields to denormalization.");
             }
+        }
+
+        private static string GetValueOrEmpty(Dictionary<string, string> dictionary, string key)
+        {
+            string value;
+            return dictionary.TryGetValue(key, out value) ? value : string.Empty;
         }
 
         private static Dictionary<string, string> ExtractTargetDetails(object targetDetails)
