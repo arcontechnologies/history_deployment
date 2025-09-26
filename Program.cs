@@ -198,7 +198,7 @@ namespace ArtifactDeploymentsApp
                         {
                             components.Add(new ComponentRecord
                             {
-                                Id = reader.GetInt32("Id"),
+                                Id = int.Parse(reader.GetString("Id")),
                                 Code = reader.GetString("Code"),
                                 ScanProjectCode = reader.IsDBNull("ScanProjectCode") ? null : reader.GetString("ScanProjectCode"),
                                 TargetName = reader.IsDBNull("TargetName") ? null : reader.GetString("TargetName"),
