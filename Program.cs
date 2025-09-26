@@ -176,188 +176,119 @@ namespace ArtifactDeploymentsApp
 
         private static async Task UpdateComponentsFromDeployments()
         {
-            logger.Info("Starting component inventory update from deployment data");
+            logger.Info("Starting SIMPLE component update for MARVIN and WCM denormalization");
             
-            // Query to find Marvin and WCM components that might need updates
-            var componentsQuery = $@"
-                SELECT 
-                    [Id], [Code], [ScanProjectCode], [TargetName], [Type], [PlatformName],
-                    [ComponentType], [Description]
-                FROM {componentsTableName}
-                WHERE [TargetName] IN ('Marvin', 'WCM')
-                ORDER BY [Code]";
-
-            // Query to get deployment data for correlation
-            var deploymentsQuery = $@"
-                SELECT 
-                    [ArtifactId], [TargetPlatform], [Environment],
-                    [TargetDetails_compSpec], [TargetDetails_compSpecVersion], 
-                    [TargetDetails_logic_env], [TargetDetails_platform],
-                    [TargetDetails_ChannelName], [TargetDetails_TechPlatform], 
-                    [TargetDetails_app_code], [TargetDetails_service],
-                    [DeployedOn]
-                FROM {tableName}
-                WHERE [TargetPlatform] IN ('Marvin', 'WCM')
-                AND ([TargetDetails_compSpec] IS NOT NULL 
-                     OR [TargetDetails_ChannelName] IS NOT NULL)
-                ORDER BY [DeployedOn] DESC";
-
-            var components = new List<ComponentRecord>();
-            var deployments = new List<DeploymentRecord>();
-
-            // Load components
-            using (var connection = new SqlConnection(connectionString))
+            try
             {
-                await connection.OpenAsync();
-                
-                using (var command = new SqlCommand(componentsQuery, connection))
-                {
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            components.Add(new ComponentRecord
-                            {
-                                Id = reader["Id"]?.ToString(),
-                                Code = reader["Code"]?.ToString(),
-                                ScanProjectCode = reader["ScanProjectCode"]?.ToString(),
-                                TargetName = reader["TargetName"]?.ToString(),
-                                Type = reader["Type"]?.ToString(),
-                                PlatformName = reader["PlatformName"]?.ToString(),
-                                ComponentType = reader["ComponentType"]?.ToString(),
-                                Description = reader["Description"]?.ToString()
-                            });
-                        }
-                    }
-                }
-            }
-
-            // Load deployments
-            using (var connection = new SqlConnection(connectionString))
-            {
-                await connection.OpenAsync();
-                
-                using (var command = new SqlCommand(deploymentsQuery, connection))
-                {
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            deployments.Add(new DeploymentRecord
-                            {
-                                ArtifactId = reader["ArtifactId"]?.ToString(),
-                                TargetPlatform = reader["TargetPlatform"]?.ToString(),
-                                Environment = reader["Environment"]?.ToString(),
-                                CompSpec = reader["TargetDetails_compSpec"]?.ToString(),
-                                CompSpecVersion = reader["TargetDetails_compSpecVersion"]?.ToString(),
-                                LogicEnv = reader["TargetDetails_logic_env"]?.ToString(),
-                                Platform = reader["TargetDetails_platform"]?.ToString(),
-                                ChannelName = reader["TargetDetails_ChannelName"]?.ToString(),
-                                TechPlatform = reader["TargetDetails_TechPlatform"]?.ToString(),
-                                AppCode = reader["TargetDetails_app_code"]?.ToString(),
-                                Service = reader["TargetDetails_service"]?.ToString(),
-                                DeployedOn = reader["DeployedOn"]?.ToString()
-                            });
-                        }
-                    }
-                }
-            }
-
-            logger.Info($"Loaded {components.Count} components and {deployments.Count} deployments for correlation");
-
-            // Correlate and update
-            var updateCount = 0;
-            var updateStatements = new List<string>();
-
-            foreach (var component in components)
-            {
-                // Find matching deployments based on ScanProjectCode or Code
-                var matchingDeployments = deployments.Where(d => 
-                    (component.ScanProjectCode != null && d.ArtifactId != null && 
-                     (d.ArtifactId.Contains(component.ScanProjectCode) || component.ScanProjectCode.Contains(d.ArtifactId))) ||
-                    (d.ArtifactId != null && component.Code != null &&
-                     (d.ArtifactId.Contains(component.Code) || component.Code.Contains(d.ArtifactId)))
-                ).ToList();
-
-                if (!matchingDeployments.Any())
-                {
-                    logger.Debug($"No matching deployments found for component {component.Code}");
-                    continue;
-                }
-
-                // Use the most recent deployment
-                var deployment = matchingDeployments.OrderByDescending(d => d.DeployedOn).First();
-
-                logger.Info($"Correlating component {component.Code} ({component.TargetName}) with deployment {deployment.ArtifactId} ({deployment.TargetPlatform})");
-
-                // Build update statement based on target platform
-                var updateFields = new List<string>();
-                var hasUpdates = false;
-
-                if (component.TargetName == "Marvin" && deployment.TargetPlatform == "Marvin")
-                {
-                    if (!string.IsNullOrEmpty(deployment.CompSpec) && string.IsNullOrEmpty(component.ComponentType))
-                    {
-                        updateFields.Add($"[ComponentType] = '{deployment.CompSpec.Replace("'", "''")}'");
-                        hasUpdates = true;
-                    }
-                    if (!string.IsNullOrEmpty(deployment.Platform) && string.IsNullOrEmpty(component.Description))
-                    {
-                        updateFields.Add($"[Description] = 'Marvin Platform: {deployment.Platform.Replace("'", "''")}'");
-                        hasUpdates = true;
-                    }
-                }
-                else if (component.TargetName == "WCM" && deployment.TargetPlatform == "WCM")
-                {
-                    if (!string.IsNullOrEmpty(deployment.ChannelName) && string.IsNullOrEmpty(component.ComponentType))
-                    {
-                        updateFields.Add($"[ComponentType] = '{deployment.ChannelName.Replace("'", "''")}'");
-                        hasUpdates = true;
-                    }
-                    if (!string.IsNullOrEmpty(deployment.TechPlatform) && string.IsNullOrEmpty(component.Description))
-                    {
-                        updateFields.Add($"[Description] = 'WCM Platform: {deployment.TechPlatform.Replace("'", "''")}'");
-                        hasUpdates = true;
-                    }
-                }
-
-                if (hasUpdates)
-                {
-                    var updateSql = $@"
-                        UPDATE {componentsTableName} 
-                        SET {string.Join(", ", updateFields)}
-                        WHERE [Id] = {component.Id}";
-                    
-                    updateStatements.Add(updateSql);
-                    updateCount++;
-                    
-                    logger.Info($"Prepared update for component {component.Code}: {string.Join(", ", updateFields)}");
-                }
-            }
-
-            // Execute updates
-            if (updateStatements.Any())
-            {
-                logger.Info($"Executing {updateStatements.Count} update statements");
-                
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
                     
-                    foreach (var updateSql in updateStatements)
+                    // Show status before fix
+                    logger.Info("=== STATUS BEFORE FIX ===");
+                    ShowComponentStatus(connection);
+                    
+                    // STEP 1: Fix MARVIN components
+                    logger.Info("Step 1: Fixing MARVIN components...");
+                    var marvinSql = $@"
+                        UPDATE comp
+                        SET 
+                            comp.ComponentType = COALESCE(NULLIF(comp.ComponentType, ''), dep.TargetDetails_compSpec),
+                            comp.Description = COALESCE(NULLIF(comp.Description, ''), 
+                                                      CONCAT('Marvin: ', dep.TargetDetails_platform))
+                        FROM {componentsTableName} comp
+                        INNER JOIN (
+                            SELECT DISTINCT 
+                                ArtifactId,
+                                FIRST_VALUE(TargetDetails_compSpec) OVER (PARTITION BY ArtifactId ORDER BY DeployedOn DESC) as TargetDetails_compSpec,
+                                FIRST_VALUE(TargetDetails_platform) OVER (PARTITION BY ArtifactId ORDER BY DeployedOn DESC) as TargetDetails_platform
+                            FROM {tableName}
+                            WHERE TargetPlatform = 'Marvin'
+                              AND (TargetDetails_compSpec IS NOT NULL OR TargetDetails_platform IS NOT NULL)
+                        ) dep ON (
+                            comp.Code = dep.ArtifactId 
+                            OR comp.ScanProjectCode = dep.ArtifactId
+                            OR comp.Code LIKE '%' + dep.ArtifactId + '%'
+                        )
+                        WHERE comp.TargetName = 'Marvin'";
+                    
+                    using (var cmd = new SqlCommand(marvinSql, connection))
                     {
-                        using (var command = new SqlCommand(updateSql, connection))
-                        {
-                            await command.ExecuteNonQueryAsync();
-                        }
+                        cmd.CommandTimeout = 300;
+                        var marvinUpdated = await cmd.ExecuteNonQueryAsync();
+                        logger.Info($"✓ Updated {marvinUpdated} MARVIN components");
                     }
+                    
+                    // STEP 2: Fix WCM components  
+                    logger.Info("Step 2: Fixing WCM components...");
+                    var wcmSql = $@"
+                        UPDATE comp
+                        SET 
+                            comp.ComponentType = COALESCE(NULLIF(comp.ComponentType, ''), dep.TargetDetails_ChannelName),
+                            comp.Description = COALESCE(NULLIF(comp.Description, ''), 
+                                                      CONCAT('WCM: ', dep.TargetDetails_TechPlatform))
+                        FROM {componentsTableName} comp
+                        INNER JOIN (
+                            SELECT DISTINCT 
+                                ArtifactId,
+                                FIRST_VALUE(TargetDetails_ChannelName) OVER (PARTITION BY ArtifactId ORDER BY DeployedOn DESC) as TargetDetails_ChannelName,
+                                FIRST_VALUE(TargetDetails_TechPlatform) OVER (PARTITION BY ArtifactId ORDER BY DeployedOn DESC) as TargetDetails_TechPlatform
+                            FROM {tableName}
+                            WHERE TargetPlatform = 'WCM'
+                              AND (TargetDetails_ChannelName IS NOT NULL OR TargetDetails_TechPlatform IS NOT NULL)
+                        ) dep ON (
+                            comp.Code = dep.ArtifactId 
+                            OR comp.ScanProjectCode = dep.ArtifactId
+                            OR comp.Code LIKE '%' + dep.ArtifactId + '%'
+                        )
+                        WHERE comp.TargetName = 'WCM'";
+                    
+                    using (var cmd = new SqlCommand(wcmSql, connection))
+                    {
+                        cmd.CommandTimeout = 300;
+                        var wcmUpdated = await cmd.ExecuteNonQueryAsync();
+                        logger.Info($"✓ Updated {wcmUpdated} WCM components");
+                    }
+                    
+                    // Show status after fix
+                    logger.Info("=== STATUS AFTER FIX ===");
+                    ShowComponentStatus(connection);
                 }
                 
-                logger.Info($"Successfully updated {updateCount} components with deployment data");
+                logger.Info("Component update completed successfully");
             }
-            else
+            catch (Exception ex)
             {
-                logger.Info("No components needed updating");
+                logger.Error(ex, "Component update failed");
+                throw;
+            }
+        }
+
+        private static void ShowComponentStatus(SqlConnection connection)
+        {
+            var statusSql = $@"
+                SELECT 
+                    TargetName,
+                    COUNT(*) as Total,
+                    COUNT(CASE WHEN ComponentType IS NOT NULL AND ComponentType != '' THEN 1 END) as WithType,
+                    COUNT(CASE WHEN Description IS NOT NULL AND Description != '' THEN 1 END) as WithDesc
+                FROM {componentsTableName}
+                WHERE TargetName IN ('Helios', 'Marvin', 'WCM')
+                GROUP BY TargetName
+                ORDER BY TargetName";
+            
+            using (var cmd = new SqlCommand(statusSql, connection))
+            using (var reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    var target = reader["TargetName"].ToString();
+                    var total = reader["Total"];
+                    var withType = reader["WithType"];
+                    var withDesc = reader["WithDesc"];
+                    
+                    logger.Info($"{target,7}: {withType,3}/{total,3} with ComponentType, {withDesc,3}/{total,3} with Description");
+                }
             }
         }
 
