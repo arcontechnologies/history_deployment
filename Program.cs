@@ -24,6 +24,7 @@ namespace ArtifactDeploymentsApp
         private static string connectionString;
         private static string apiUrl;
         private static string tableName;
+        private static string componentsTableName;
         private static string xlsxFilePath;
         private static int pageSize;
         private static int maxRetries;
@@ -74,6 +75,12 @@ namespace ArtifactDeploymentsApp
                         logger.Info("Excel export completed");
                         break;
 
+                    case "--update-components":
+                        logger.Info("Starting component inventory update from deployment data...");
+                        await UpdateComponentsFromDeployments();
+                        logger.Info("Component inventory update completed");
+                        break;
+
                     case "--help":
                     case "-h":
                         ShowHelp();
@@ -109,16 +116,18 @@ namespace ArtifactDeploymentsApp
             Console.WriteLine("  ArtifactDeploymentsApp [command]");
             Console.WriteLine();
             Console.WriteLine("Commands:");
-            Console.WriteLine("  --create    Create SQL Server table");
-            Console.WriteLine("  --history   Delete all records and load complete history from API");
-            Console.WriteLine("  --daily     Load today's data and export to Excel");
-            Console.WriteLine("  --save      Export current database data to Excel file");
-            Console.WriteLine("  --help      Show this help information");
+            Console.WriteLine("  --create             Create SQL Server table");
+            Console.WriteLine("  --history            Delete all records and load complete history from API");
+            Console.WriteLine("  --daily              Load today's data and export to Excel");
+            Console.WriteLine("  --save               Export current database data to Excel file");
+            Console.WriteLine("  --update-components  Update component inventory with deployment data");
+            Console.WriteLine("  --help               Show this help information");
             Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine("  ArtifactDeploymentsApp --create");
             Console.WriteLine("  ArtifactDeploymentsApp --history");
             Console.WriteLine("  ArtifactDeploymentsApp --daily");
+            Console.WriteLine("  ArtifactDeploymentsApp --update-components");
             Console.WriteLine("  ArtifactDeploymentsApp --save");
             Console.WriteLine();
             Console.WriteLine("Configuration is managed through App.config file.");
@@ -135,14 +144,203 @@ namespace ArtifactDeploymentsApp
             
             apiUrl = ConfigurationManager.AppSettings["ApiUrl"];
             tableName = ConfigurationManager.AppSettings["TableName"];
+            componentsTableName = ConfigurationManager.AppSettings["ComponentsTableName"];
             xlsxFilePath = ConfigurationManager.AppSettings["XlsxFilePath"];
             pageSize = int.Parse(ConfigurationManager.AppSettings["PageSize"]);
             maxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
             retryDelayMs = int.Parse(ConfigurationManager.AppSettings["RetryDelayMs"]);
             delayBetweenChunksMs = int.Parse(ConfigurationManager.AppSettings["DelayBetweenChunksMs"] ?? "1000");
 
-            logger.Info($"Configuration loaded - Table: {tableName}, PageSize: {pageSize}, Delay: {delayBetweenChunksMs}ms");
+            logger.Info($"Configuration loaded - Deployments Table: {tableName}, Components Table: {componentsTableName}, PageSize: {pageSize}, Delay: {delayBetweenChunksMs}ms");
         }
+
+        private static async Task UpdateComponentsFromDeployments()
+        {
+            logger.Info("Starting component inventory update from deployment data");
+            
+            // Query to find Marvin and WCM components that might need updates
+            var componentsQuery = $@"
+                SELECT 
+                    [Id], [Code], [ScanProjectCode], [TargetName], [Type], [PlatformName],
+                    [ComponentType], [Description]
+                FROM {componentsTableName}
+                WHERE [TargetName] IN ('Marvin', 'WCM')
+                ORDER BY [Code]";
+
+            // Query to get deployment data for correlation
+            var deploymentsQuery = $@"
+                SELECT 
+                    [ArtifactId], [TargetPlatform], [Environment],
+                    [TargetDetails_compSpec], [TargetDetails_compSpecVersion], 
+                    [TargetDetails_logic_env], [TargetDetails_platform],
+                    [TargetDetails_ChannelName], [TargetDetails_TechPlatform], 
+                    [TargetDetails_app_code], [TargetDetails_service],
+                    [DeployedOn]
+                FROM {tableName}
+                WHERE [TargetPlatform] IN ('Marvin', 'WCM')
+                AND ([TargetDetails_compSpec] IS NOT NULL 
+                     OR [TargetDetails_ChannelName] IS NOT NULL)
+                ORDER BY [DeployedOn] DESC";
+
+            var components = new List<ComponentRecord>();
+            var deployments = new List<DeploymentRecord>();
+
+            // Load components
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+                
+                using (var command = new SqlCommand(componentsQuery, connection))
+                {
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            components.Add(new ComponentRecord
+                            {
+                                Id = reader.GetInt32("Id"),
+                                Code = reader.GetString("Code"),
+                                ScanProjectCode = reader.IsDBNull("ScanProjectCode") ? null : reader.GetString("ScanProjectCode"),
+                                TargetName = reader.IsDBNull("TargetName") ? null : reader.GetString("TargetName"),
+                                Type = reader.IsDBNull("Type") ? null : reader.GetString("Type"),
+                                PlatformName = reader.IsDBNull("PlatformName") ? null : reader.GetString("PlatformName"),
+                                ComponentType = reader.IsDBNull("ComponentType") ? null : reader.GetString("ComponentType"),
+                                Description = reader.IsDBNull("Description") ? null : reader.GetString("Description")
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Load deployments
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+                
+                using (var command = new SqlCommand(deploymentsQuery, connection))
+                {
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            deployments.Add(new DeploymentRecord
+                            {
+                                ArtifactId = reader.IsDBNull("ArtifactId") ? null : reader.GetString("ArtifactId"),
+                                TargetPlatform = reader.IsDBNull("TargetPlatform") ? null : reader.GetString("TargetPlatform"),
+                                Environment = reader.IsDBNull("Environment") ? null : reader.GetString("Environment"),
+                                CompSpec = reader.IsDBNull("TargetDetails_compSpec") ? null : reader.GetString("TargetDetails_compSpec"),
+                                CompSpecVersion = reader.IsDBNull("TargetDetails_compSpecVersion") ? null : reader.GetString("TargetDetails_compSpecVersion"),
+                                LogicEnv = reader.IsDBNull("TargetDetails_logic_env") ? null : reader.GetString("TargetDetails_logic_env"),
+                                Platform = reader.IsDBNull("TargetDetails_platform") ? null : reader.GetString("TargetDetails_platform"),
+                                ChannelName = reader.IsDBNull("TargetDetails_ChannelName") ? null : reader.GetString("TargetDetails_ChannelName"),
+                                TechPlatform = reader.IsDBNull("TargetDetails_TechPlatform") ? null : reader.GetString("TargetDetails_TechPlatform"),
+                                AppCode = reader.IsDBNull("TargetDetails_app_code") ? null : reader.GetString("TargetDetails_app_code"),
+                                Service = reader.IsDBNull("TargetDetails_service") ? null : reader.GetString("TargetDetails_service"),
+                                DeployedOn = reader.IsDBNull("DeployedOn") ? null : reader.GetString("DeployedOn")
+                            });
+                        }
+                    }
+                }
+            }
+
+            logger.Info($"Loaded {components.Count} components and {deployments.Count} deployments for correlation");
+
+            // Correlate and update
+            var updateCount = 0;
+            var updateStatements = new List<string>();
+
+            foreach (var component in components)
+            {
+                // Find matching deployments based on ScanProjectCode or Code
+                var matchingDeployments = deployments.Where(d => 
+                    (component.ScanProjectCode != null && d.ArtifactId != null && 
+                     (d.ArtifactId.Contains(component.ScanProjectCode) || component.ScanProjectCode.Contains(d.ArtifactId))) ||
+                    (d.ArtifactId != null && component.Code != null &&
+                     (d.ArtifactId.Contains(component.Code) || component.Code.Contains(d.ArtifactId)))
+                ).ToList();
+
+                if (!matchingDeployments.Any())
+                {
+                    logger.Debug($"No matching deployments found for component {component.Code}");
+                    continue;
+                }
+
+                // Use the most recent deployment
+                var deployment = matchingDeployments.OrderByDescending(d => d.DeployedOn).First();
+
+                logger.Info($"Correlating component {component.Code} ({component.TargetName}) with deployment {deployment.ArtifactId} ({deployment.TargetPlatform})");
+
+                // Build update statement based on target platform
+                var updateFields = new List<string>();
+                var hasUpdates = false;
+
+                if (component.TargetName == "Marvin" && deployment.TargetPlatform == "Marvin")
+                {
+                    if (!string.IsNullOrEmpty(deployment.CompSpec) && string.IsNullOrEmpty(component.ComponentType))
+                    {
+                        updateFields.Add($"[ComponentType] = '{deployment.CompSpec.Replace("'", "''")}'");
+                        hasUpdates = true;
+                    }
+                    if (!string.IsNullOrEmpty(deployment.Platform) && string.IsNullOrEmpty(component.Description))
+                    {
+                        updateFields.Add($"[Description] = 'Marvin Platform: {deployment.Platform.Replace("'", "''")}'");
+                        hasUpdates = true;
+                    }
+                }
+                else if (component.TargetName == "WCM" && deployment.TargetPlatform == "WCM")
+                {
+                    if (!string.IsNullOrEmpty(deployment.ChannelName) && string.IsNullOrEmpty(component.ComponentType))
+                    {
+                        updateFields.Add($"[ComponentType] = '{deployment.ChannelName.Replace("'", "''")}'");
+                        hasUpdates = true;
+                    }
+                    if (!string.IsNullOrEmpty(deployment.TechPlatform) && string.IsNullOrEmpty(component.Description))
+                    {
+                        updateFields.Add($"[Description] = 'WCM Platform: {deployment.TechPlatform.Replace("'", "''")}'");
+                        hasUpdates = true;
+                    }
+                }
+
+                if (hasUpdates)
+                {
+                    var updateSql = $@"
+                        UPDATE {componentsTableName} 
+                        SET {string.Join(", ", updateFields)}
+                        WHERE [Id] = {component.Id}";
+                    
+                    updateStatements.Add(updateSql);
+                    updateCount++;
+                    
+                    logger.Info($"Prepared update for component {component.Code}: {string.Join(", ", updateFields)}");
+                }
+            }
+
+            // Execute updates
+            if (updateStatements.Any())
+            {
+                logger.Info($"Executing {updateStatements.Count} update statements");
+                
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+                    
+                    foreach (var updateSql in updateStatements)
+                    {
+                        using (var command = new SqlCommand(updateSql, connection))
+                        {
+                            await command.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+                
+                logger.Info($"Successfully updated {updateCount} components with deployment data");
+            }
+            else
+            {
+                logger.Info("No components needed updating");
+            }
+        }
+
         private static void CreateSqlTable()
         {
             logger.Info("Creating SQL table if not exists");
@@ -335,7 +533,7 @@ namespace ArtifactDeploymentsApp
             {
                 try
                 {
-                    var url = $"{apiUrl}?limit={pageSize}&offset={offset}";
+                    var url = $"{apiUrl}&limit={pageSize}&offset={offset}";
                     logger.Debug($"Calling API: {url}");
                     
                     var response = await httpClient.GetStringAsync(url);
@@ -697,6 +895,35 @@ namespace ArtifactDeploymentsApp
                 }
             }
         }
+    }
+
+    // New data classes for component correlation
+    public class ComponentRecord
+    {
+        public int Id { get; set; }
+        public string Code { get; set; }
+        public string ScanProjectCode { get; set; }
+        public string TargetName { get; set; }
+        public string Type { get; set; }
+        public string PlatformName { get; set; }
+        public string ComponentType { get; set; }
+        public string Description { get; set; }
+    }
+
+    public class DeploymentRecord
+    {
+        public string ArtifactId { get; set; }
+        public string TargetPlatform { get; set; }
+        public string Environment { get; set; }
+        public string CompSpec { get; set; }
+        public string CompSpecVersion { get; set; }
+        public string LogicEnv { get; set; }
+        public string Platform { get; set; }
+        public string ChannelName { get; set; }
+        public string TechPlatform { get; set; }
+        public string AppCode { get; set; }
+        public string Service { get; set; }
+        public string DeployedOn { get; set; }
     }
 
     // Data model classes
