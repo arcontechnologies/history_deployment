@@ -156,9 +156,29 @@ namespace ArtifactDeploymentsApp
                     [DeploymentURL] VARCHAR(1000),
                     [Environment] VARCHAR(1000),
                     [Id] VARCHAR(1000),
-                    [TargetDetails] VARCHAR(1000),
                     [TargetPlatform] VARCHAR(1000),
-                    [Version] VARCHAR(1000)
+                    [Version] VARCHAR(1000),
+                    -- Complete TargetDetails as JSON (for new/unknown platforms)
+                    [TargetDetails] VARCHAR(1000),
+                    -- Helios platform TargetDetails fields
+                    [TargetDetails_appArtifactID] VARCHAR(1000),
+                    [TargetDetails_appGroupID] VARCHAR(1000),
+                    [TargetDetails_appVersion] VARCHAR(1000),
+                    [TargetDetails_confArtifactID] VARCHAR(1000),
+                    [TargetDetails_confGroupID] VARCHAR(1000),
+                    [TargetDetails_confVersion] VARCHAR(1000),
+                    [TargetDetails_deployScope] VARCHAR(1000),
+                    [TargetDetails_landscape] VARCHAR(1000),
+                    -- Marvin platform TargetDetails fields
+                    [TargetDetails_compSpec] VARCHAR(1000),
+                    [TargetDetails_compSpecVersion] VARCHAR(1000),
+                    [TargetDetails_logic_env] VARCHAR(1000),
+                    [TargetDetails_platform] VARCHAR(1000),
+                    -- WCM platform TargetDetails fields
+                    [TargetDetails_ChannelName] VARCHAR(1000),
+                    [TargetDetails_TechPlatform] VARCHAR(1000),
+                    [TargetDetails_app_code] VARCHAR(1000),
+                    [TargetDetails_service] VARCHAR(1000)
                 )";
 
             ExecuteSqlCommand(createTableScript);
@@ -381,7 +401,7 @@ namespace ArtifactDeploymentsApp
         {
             var dataTable = new DataTable();
             
-            // Add columns based on new JSON structure - all VARCHAR(1000)
+            // Add columns based on denormalized JSON structure - all VARCHAR(1000)
             dataTable.Columns.Add("ArtifactGroup", typeof(string));
             dataTable.Columns.Add("ArtifactId", typeof(string));
             dataTable.Columns.Add("ArtifactVersion", typeof(string));
@@ -390,9 +410,34 @@ namespace ArtifactDeploymentsApp
             dataTable.Columns.Add("DeploymentURL", typeof(string));
             dataTable.Columns.Add("Environment", typeof(string));
             dataTable.Columns.Add("Id", typeof(string));
-            dataTable.Columns.Add("TargetDetails", typeof(string));
             dataTable.Columns.Add("TargetPlatform", typeof(string));
             dataTable.Columns.Add("Version", typeof(string));
+            
+            // Complete TargetDetails as JSON (for future/unknown platforms)
+            dataTable.Columns.Add("TargetDetails", typeof(string));
+            
+            // Denormalized TargetDetails columns for known platforms
+            // Helios platform fields
+            dataTable.Columns.Add("TargetDetails_appArtifactID", typeof(string));
+            dataTable.Columns.Add("TargetDetails_appGroupID", typeof(string));
+            dataTable.Columns.Add("TargetDetails_appVersion", typeof(string));
+            dataTable.Columns.Add("TargetDetails_confArtifactID", typeof(string));
+            dataTable.Columns.Add("TargetDetails_confGroupID", typeof(string));
+            dataTable.Columns.Add("TargetDetails_confVersion", typeof(string));
+            dataTable.Columns.Add("TargetDetails_deployScope", typeof(string));
+            dataTable.Columns.Add("TargetDetails_landscape", typeof(string));
+            
+            // Marvin platform fields
+            dataTable.Columns.Add("TargetDetails_compSpec", typeof(string));
+            dataTable.Columns.Add("TargetDetails_compSpecVersion", typeof(string));
+            dataTable.Columns.Add("TargetDetails_logic_env", typeof(string));
+            dataTable.Columns.Add("TargetDetails_platform", typeof(string));
+            
+            // WCM platform fields
+            dataTable.Columns.Add("TargetDetails_ChannelName", typeof(string));
+            dataTable.Columns.Add("TargetDetails_TechPlatform", typeof(string));
+            dataTable.Columns.Add("TargetDetails_app_code", typeof(string));
+            dataTable.Columns.Add("TargetDetails_service", typeof(string));
             
             return dataTable;
         }
@@ -409,8 +454,100 @@ namespace ArtifactDeploymentsApp
             row["TargetPlatform"] = artifact.TargetPlatform ?? string.Empty;
             row["Version"] = artifact.Version ?? string.Empty;
             
-            // Store TargetDetails as JSON string
+            // Store complete TargetDetails as JSON (for future/unknown platforms)
             row["TargetDetails"] = ConvertToString(artifact.TargetDetails);
+            
+            // Denormalize TargetDetails object into separate columns for known platforms
+            var targetDetails = ExtractTargetDetails(artifact.TargetDetails);
+            
+            // Check for unknown platforms and log them
+            var knownPlatforms = new[] { "Helios", "Marvin", "WCM" };
+            if (!string.IsNullOrEmpty(artifact.TargetPlatform) && 
+                !knownPlatforms.Contains(artifact.TargetPlatform, StringComparer.OrdinalIgnoreCase))
+            {
+                logger.Warn($"Unknown TargetPlatform encountered: '{artifact.TargetPlatform}'. " +
+                           $"TargetDetails: {ConvertToString(artifact.TargetDetails)}. " +
+                           $"Consider updating the application to support this platform.");
+            }
+            
+            // Helios platform fields
+            row["TargetDetails_appArtifactID"] = targetDetails.GetValueOrDefault("appArtifactID", string.Empty);
+            row["TargetDetails_appGroupID"] = targetDetails.GetValueOrDefault("appGroupID", string.Empty);
+            row["TargetDetails_appVersion"] = targetDetails.GetValueOrDefault("appVersion", string.Empty);
+            row["TargetDetails_confArtifactID"] = targetDetails.GetValueOrDefault("confArtifactID", string.Empty);
+            row["TargetDetails_confGroupID"] = targetDetails.GetValueOrDefault("confGroupID", string.Empty);
+            row["TargetDetails_confVersion"] = targetDetails.GetValueOrDefault("confVersion", string.Empty);
+            row["TargetDetails_deployScope"] = targetDetails.GetValueOrDefault("deployScope", string.Empty);
+            row["TargetDetails_landscape"] = targetDetails.GetValueOrDefault("landscape", string.Empty);
+            
+            // Marvin platform fields
+            row["TargetDetails_compSpec"] = targetDetails.GetValueOrDefault("compSpec", string.Empty);
+            row["TargetDetails_compSpecVersion"] = targetDetails.GetValueOrDefault("compSpecVersion", string.Empty);
+            row["TargetDetails_logic_env"] = targetDetails.GetValueOrDefault("logic_env", string.Empty);
+            row["TargetDetails_platform"] = targetDetails.GetValueOrDefault("platform", string.Empty);
+            
+            // WCM platform fields
+            row["TargetDetails_ChannelName"] = targetDetails.GetValueOrDefault("ChannelName", string.Empty);
+            row["TargetDetails_TechPlatform"] = targetDetails.GetValueOrDefault("TechPlatform", string.Empty);
+            row["TargetDetails_app_code"] = targetDetails.GetValueOrDefault("app_code", string.Empty);
+            row["TargetDetails_service"] = targetDetails.GetValueOrDefault("service", string.Empty);
+            
+            // Log if there are unknown fields in TargetDetails that we're not capturing
+            var knownFields = new[]
+            {
+                // Helios fields
+                "appArtifactID", "appGroupID", "appVersion", "confArtifactID", "confGroupID", 
+                "confVersion", "deployScope", "landscape",
+                // Marvin fields  
+                "compSpec", "compSpecVersion", "logic_env", "platform",
+                // WCM fields
+                "ChannelName", "TechPlatform", "app_code", "service"
+            };
+            
+            var unknownFields = targetDetails.Keys.Where(k => !knownFields.Contains(k) && k != "_raw").ToList();
+            if (unknownFields.Any())
+            {
+                logger.Info($"Unknown TargetDetails fields found for {artifact.TargetPlatform}: {string.Join(", ", unknownFields)}. " +
+                           $"ArtifactId: {artifact.ArtifactId}. Consider adding these fields to denormalization.");
+            }
+        }
+
+        private static Dictionary<string, string> ExtractTargetDetails(object targetDetails)
+        {
+            var result = new Dictionary<string, string>();
+            
+            if (targetDetails == null)
+                return result;
+                
+            try
+            {
+                // If it's already a dictionary/JObject, convert it
+                if (targetDetails is Newtonsoft.Json.Linq.JObject jobj)
+                {
+                    foreach (var prop in jobj.Properties())
+                    {
+                        result[prop.Name] = prop.Value?.ToString() ?? string.Empty;
+                    }
+                }
+                else
+                {
+                    // Try to deserialize as JObject
+                    var json = targetDetails.ToString();
+                    var parsed = Newtonsoft.Json.Linq.JObject.Parse(json);
+                    foreach (var prop in parsed.Properties())
+                    {
+                        result[prop.Name] = prop.Value?.ToString() ?? string.Empty;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn($"Failed to extract TargetDetails: {ex.Message}");
+                // Fallback: serialize the entire object as JSON string
+                result["_raw"] = ConvertToString(targetDetails);
+            }
+            
+            return result;
         }
 
         private static string ConvertToString(object value)
