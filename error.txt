@@ -1,0 +1,53 @@
+Severity	Code	Description	Project	File	Line	Suppression State
+Error	CS1503	Argument 1: cannot convert from 'string' to 'int'	PlatformInventoryApp	D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs	202	Active
+
+               
+               
+               while (await reader.ReadAsync())
+                        {
+                            components.Add(new ComponentRecord
+                            {
+                                Id = reader.GetInt32("Id"),
+                                Code = reader.GetString("Code"),
+                                ScanProjectCode = reader.IsDBNull("ScanProjectCode") ? null : reader.GetString("ScanProjectCode"),
+                                TargetName = reader.IsDBNull("TargetName") ? null : reader.GetString("TargetName"),
+                                Type = reader.IsDBNull("Type") ? null : reader.GetString("Type"),
+                                PlatformName = reader.IsDBNull("PlatformName") ? null : reader.GetString("PlatformName"),
+                                ComponentType = reader.IsDBNull("ComponentType") ? null : reader.GetString("ComponentType"),
+                                Description = reader.IsDBNull("Description") ? null : reader.GetString("Description")
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Load deployments
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+
+                using (var command = new SqlCommand(deploymentsQuery, connection))
+                {
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            deployments.Add(new DeploymentRecord
+                            {
+                                ArtifactId = reader.IsDBNull("ArtifactId") ? null : reader.GetString("ArtifactId"),
+                                TargetPlatform = reader.IsDBNull("TargetPlatform") ? null : reader.GetString("TargetPlatform"),
+                                Environment = reader.IsDBNull("Environment") ? null : reader.GetString("Environment"),
+                                CompSpec = reader.IsDBNull("TargetDetails_compSpec") ? null : reader.GetString("TargetDetails_compSpec"),
+                                CompSpecVersion = reader.IsDBNull("TargetDetails_compSpecVersion") ? null : reader.GetString("TargetDetails_compSpecVersion"),
+                                LogicEnv = reader.IsDBNull("TargetDetails_logic_env") ? null : reader.GetString("TargetDetails_logic_env"),
+                                Platform = reader.IsDBNull("TargetDetails_platform") ? null : reader.GetString("TargetDetails_platform"),
+                                ChannelName = reader.IsDBNull("TargetDetails_ChannelName") ? null : reader.GetString("TargetDetails_ChannelName"),
+                                TechPlatform = reader.IsDBNull("TargetDetails_TechPlatform") ? null : reader.GetString("TargetDetails_TechPlatform"),
+                                AppCode = reader.IsDBNull("TargetDetails_app_code") ? null : reader.GetString("TargetDetails_app_code"),
+                                Service = reader.IsDBNull("TargetDetails_service") ? null : reader.GetString("TargetDetails_service"),
+                                DeployedOn = reader.IsDBNull("DeployedOn") ? null : reader.GetString("DeployedOn")
+                            });
+                        }
+                    }
+                }
+            }
