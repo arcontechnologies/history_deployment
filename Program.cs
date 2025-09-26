@@ -143,8 +143,28 @@ namespace ArtifactDeploymentsApp
             connectionString = $"Server={dbServer};Database={database};Integrated Security=true;Connection Timeout=120;";
             
             apiUrl = ConfigurationManager.AppSettings["ApiUrl"];
+            
+            // Fix the configuration reading - explicitly set correct values
             tableName = ConfigurationManager.AppSettings["TableName"];
             componentsTableName = ConfigurationManager.AppSettings["ComponentsTableName"];
+            
+            // Debug what we're actually reading
+            logger.Info($"Raw config - TableName: '{ConfigurationManager.AppSettings["TableName"]}'");
+            logger.Info($"Raw config - ComponentsTableName: '{ConfigurationManager.AppSettings["ComponentsTableName"]}'");
+            
+            // Force correct values if config is wrong
+            if (string.IsNullOrEmpty(tableName) || tableName.Contains("PLATFORM_INVENTORY"))
+            {
+                tableName = "[DMAS].[dbo].[TB_ODS_ARTIFACT_DEPLOYMENTS]";
+                logger.Warn("Fixed tableName to deployments table");
+            }
+            
+            if (string.IsNullOrEmpty(componentsTableName) || !componentsTableName.Contains("PLATFORM_INVENTORY"))
+            {
+                componentsTableName = "[DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY]";
+                logger.Warn("Fixed componentsTableName to inventory table");
+            }
+            
             xlsxFilePath = ConfigurationManager.AppSettings["XlsxFilePath"];
             pageSize = int.Parse(ConfigurationManager.AppSettings["PageSize"]);
             maxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
