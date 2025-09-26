@@ -28,6 +28,7 @@ namespace ArtifactDeploymentsApp
         private static int pageSize;
         private static int maxRetries;
         private static int retryDelayMs;
+        private static int delayBetweenChunksMs;
 
         static async Task<int> Main(string[] args)
         {
@@ -138,8 +139,9 @@ namespace ArtifactDeploymentsApp
             pageSize = int.Parse(ConfigurationManager.AppSettings["PageSize"]);
             maxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
             retryDelayMs = int.Parse(ConfigurationManager.AppSettings["RetryDelayMs"]);
+            delayBetweenChunksMs = int.Parse(ConfigurationManager.AppSettings["DelayBetweenChunksMs"] ?? "1000");
 
-            logger.Info($"Configuration loaded - Table: {tableName}, PageSize: {pageSize}");
+            logger.Info($"Configuration loaded - Table: {tableName}, PageSize: {pageSize}, Delay: {delayBetweenChunksMs}ms");
         }
         private static void CreateSqlTable()
         {
@@ -212,6 +214,13 @@ namespace ArtifactDeploymentsApp
                     offset += pageSize;
 
                     logger.Info($"Processed {apiResponse.List.Count} records. Total: {totalRecordsProcessed}");
+                    
+                    // Add delay between chunks to avoid overwhelming the server
+                    if (!isLastPage && delayBetweenChunksMs > 0)
+                    {
+                        logger.Debug($"Waiting {delayBetweenChunksMs}ms before next API call");
+                        await Task.Delay(delayBetweenChunksMs);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -278,6 +287,13 @@ namespace ArtifactDeploymentsApp
                     }
 
                     logger.Info($"Processed {todayRecords.Count} today's records. Total today: {totalRecordsProcessed}");
+                    
+                    // Add delay between chunks to avoid overwhelming the server
+                    if (continueLoading && delayBetweenChunksMs > 0)
+                    {
+                        logger.Debug($"Waiting {delayBetweenChunksMs}ms before next API call");
+                        await Task.Delay(delayBetweenChunksMs);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -534,21 +550,33 @@ namespace ArtifactDeploymentsApp
                     {
                         result[prop.Name] = prop.Value?.ToString() ?? string.Empty;
                     }
+                    logger.Debug($"Extracted {result.Count} fields from JObject: {string.Join(", ", result.Keys)}");
+                }
+                else if (targetDetails is string jsonString && !string.IsNullOrEmpty(jsonString))
+                {
+                    // Try to parse JSON string
+                    var parsed = Newtonsoft.Json.Linq.JObject.Parse(jsonString);
+                    foreach (var prop in parsed.Properties())
+                    {
+                        result[prop.Name] = prop.Value?.ToString() ?? string.Empty;
+                    }
+                    logger.Debug($"Extracted {result.Count} fields from JSON string: {string.Join(", ", result.Keys)}");
                 }
                 else
                 {
-                    // Try to deserialize as JObject
-                    var json = targetDetails.ToString();
+                    // Try to serialize and then deserialize
+                    var json = JsonConvert.SerializeObject(targetDetails);
                     var parsed = Newtonsoft.Json.Linq.JObject.Parse(json);
                     foreach (var prop in parsed.Properties())
                     {
                         result[prop.Name] = prop.Value?.ToString() ?? string.Empty;
                     }
+                    logger.Debug($"Extracted {result.Count} fields from serialized object: {string.Join(", ", result.Keys)}");
                 }
             }
             catch (Exception ex)
             {
-                logger.Warn($"Failed to extract TargetDetails: {ex.Message}");
+                logger.Error(ex, $"Failed to extract TargetDetails: {ex.Message}. Raw value: {targetDetails}");
                 // Fallback: serialize the entire object as JSON string
                 result["_raw"] = ConvertToString(targetDetails);
             }
