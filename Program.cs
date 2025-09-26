@@ -176,7 +176,7 @@ namespace ArtifactDeploymentsApp
 
         private static async Task UpdateComponentsFromDeployments()
         {
-            logger.Info("Starting SIMPLE component update for MARVIN and WCM denormalization");
+            logger.Info("Starting SIMPLE fix for empty denormalized TargetDetails fields");
             
             try
             {
@@ -186,108 +186,116 @@ namespace ArtifactDeploymentsApp
                     
                     // Show status before fix
                     logger.Info("=== STATUS BEFORE FIX ===");
-                    ShowComponentStatus(connection);
+                    ShowEmptyFieldsStatus(connection);
                     
-                    // STEP 1: Fix MARVIN components
-                    logger.Info("Step 1: Fixing MARVIN components...");
+                    // STEP 1: Fix MARVIN records with empty denormalized fields
+                    logger.Info("Step 1: Fixing MARVIN records...");
                     var marvinSql = $@"
-                        UPDATE comp
+                        UPDATE {componentsTableName}
                         SET 
-                            comp.ComponentType = COALESCE(NULLIF(comp.ComponentType, ''), dep.TargetDetails_compSpec),
-                            comp.Description = COALESCE(NULLIF(comp.Description, ''), 
-                                                      CONCAT('Marvin: ', dep.TargetDetails_platform))
-                        FROM {componentsTableName} comp
-                        INNER JOIN (
-                            SELECT DISTINCT 
-                                ArtifactId,
-                                FIRST_VALUE(TargetDetails_compSpec) OVER (PARTITION BY ArtifactId ORDER BY DeployedOn DESC) as TargetDetails_compSpec,
-                                FIRST_VALUE(TargetDetails_platform) OVER (PARTITION BY ArtifactId ORDER BY DeployedOn DESC) as TargetDetails_platform
-                            FROM {tableName}
-                            WHERE TargetPlatform = 'Marvin'
-                              AND (TargetDetails_compSpec IS NOT NULL OR TargetDetails_platform IS NOT NULL)
-                        ) dep ON (
-                            comp.Code = dep.ArtifactId 
-                            OR comp.ScanProjectCode = dep.ArtifactId
-                            OR comp.Code LIKE '%' + dep.ArtifactId + '%'
-                        )
-                        WHERE comp.TargetName = 'Marvin'";
+                            [TargetDetails_compSpec] = CASE 
+                                WHEN ([TargetDetails_compSpec] IS NULL OR [TargetDetails_compSpec] = '') 
+                                     AND [TargetDetails] LIKE '%compSpec%'
+                                THEN JSON_VALUE([TargetDetails], '$.compSpec')
+                                ELSE [TargetDetails_compSpec]
+                            END,
+                            [TargetDetails_platform] = CASE 
+                                WHEN ([TargetDetails_platform] IS NULL OR [TargetDetails_platform] = '') 
+                                     AND [TargetDetails] LIKE '%platform%'
+                                THEN JSON_VALUE([TargetDetails], '$.platform')
+                                ELSE [TargetDetails_platform]
+                            END
+                        WHERE [TargetPlatform] = 'Marvin'
+                          AND ([TargetDetails_compSpec] IS NULL OR [TargetDetails_compSpec] = '' 
+                               OR [TargetDetails_platform] IS NULL OR [TargetDetails_platform] = '')
+                          AND [TargetDetails] IS NOT NULL AND [TargetDetails] != ''";
                     
                     using (var cmd = new SqlCommand(marvinSql, connection))
                     {
                         cmd.CommandTimeout = 300;
                         var marvinUpdated = await cmd.ExecuteNonQueryAsync();
-                        logger.Info($"✓ Updated {marvinUpdated} MARVIN components");
+                        logger.Info($"✓ Updated {marvinUpdated} MARVIN records");
                     }
                     
-                    // STEP 2: Fix WCM components  
-                    logger.Info("Step 2: Fixing WCM components...");
+                    // STEP 2: Fix WCM records with empty denormalized fields
+                    logger.Info("Step 2: Fixing WCM records...");
                     var wcmSql = $@"
-                        UPDATE comp
+                        UPDATE {componentsTableName}
                         SET 
-                            comp.ComponentType = COALESCE(NULLIF(comp.ComponentType, ''), dep.TargetDetails_ChannelName),
-                            comp.Description = COALESCE(NULLIF(comp.Description, ''), 
-                                                      CONCAT('WCM: ', dep.TargetDetails_TechPlatform))
-                        FROM {componentsTableName} comp
-                        INNER JOIN (
-                            SELECT DISTINCT 
-                                ArtifactId,
-                                FIRST_VALUE(TargetDetails_ChannelName) OVER (PARTITION BY ArtifactId ORDER BY DeployedOn DESC) as TargetDetails_ChannelName,
-                                FIRST_VALUE(TargetDetails_TechPlatform) OVER (PARTITION BY ArtifactId ORDER BY DeployedOn DESC) as TargetDetails_TechPlatform
-                            FROM {tableName}
-                            WHERE TargetPlatform = 'WCM'
-                              AND (TargetDetails_ChannelName IS NOT NULL OR TargetDetails_TechPlatform IS NOT NULL)
-                        ) dep ON (
-                            comp.Code = dep.ArtifactId 
-                            OR comp.ScanProjectCode = dep.ArtifactId
-                            OR comp.Code LIKE '%' + dep.ArtifactId + '%'
-                        )
-                        WHERE comp.TargetName = 'WCM'";
+                            [TargetDetails_ChannelName] = CASE 
+                                WHEN ([TargetDetails_ChannelName] IS NULL OR [TargetDetails_ChannelName] = '') 
+                                     AND [TargetDetails] LIKE '%ChannelName%'
+                                THEN JSON_VALUE([TargetDetails], '$.ChannelName')
+                                ELSE [TargetDetails_ChannelName]
+                            END,
+                            [TargetDetails_TechPlatform] = CASE 
+                                WHEN ([TargetDetails_TechPlatform] IS NULL OR [TargetDetails_TechPlatform] = '') 
+                                     AND [TargetDetails] LIKE '%TechPlatform%'
+                                THEN JSON_VALUE([TargetDetails], '$.TechPlatform')
+                                ELSE [TargetDetails_TechPlatform]
+                            END
+                        WHERE [TargetPlatform] = 'WCM'
+                          AND ([TargetDetails_ChannelName] IS NULL OR [TargetDetails_ChannelName] = '' 
+                               OR [TargetDetails_TechPlatform] IS NULL OR [TargetDetails_TechPlatform] = '')
+                          AND [TargetDetails] IS NOT NULL AND [TargetDetails] != ''";
                     
                     using (var cmd = new SqlCommand(wcmSql, connection))
                     {
                         cmd.CommandTimeout = 300;
                         var wcmUpdated = await cmd.ExecuteNonQueryAsync();
-                        logger.Info($"✓ Updated {wcmUpdated} WCM components");
+                        logger.Info($"✓ Updated {wcmUpdated} WCM records");
                     }
                     
                     // Show status after fix
                     logger.Info("=== STATUS AFTER FIX ===");
-                    ShowComponentStatus(connection);
+                    ShowEmptyFieldsStatus(connection);
                 }
                 
-                logger.Info("Component update completed successfully");
+                logger.Info("Denormalization fix completed successfully");
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Component update failed");
+                logger.Error(ex, "Denormalization fix failed");
                 throw;
             }
         }
 
-        private static void ShowComponentStatus(SqlConnection connection)
+        private static void ShowEmptyFieldsStatus(SqlConnection connection)
         {
             var statusSql = $@"
                 SELECT 
-                    TargetName,
-                    COUNT(*) as Total,
-                    COUNT(CASE WHEN ComponentType IS NOT NULL AND ComponentType != '' THEN 1 END) as WithType,
-                    COUNT(CASE WHEN Description IS NOT NULL AND Description != '' THEN 1 END) as WithDesc
+                    [TargetPlatform],
+                    COUNT(*) as TotalRecords,
+                    COUNT(CASE WHEN [TargetDetails_compSpec] IS NOT NULL AND [TargetDetails_compSpec] != '' THEN 1 END) as MarvinCompSpec,
+                    COUNT(CASE WHEN [TargetDetails_platform] IS NOT NULL AND [TargetDetails_platform] != '' THEN 1 END) as MarvinPlatform,
+                    COUNT(CASE WHEN [TargetDetails_ChannelName] IS NOT NULL AND [TargetDetails_ChannelName] != '' THEN 1 END) as WcmChannelName,
+                    COUNT(CASE WHEN [TargetDetails_TechPlatform] IS NOT NULL AND [TargetDetails_TechPlatform] != '' THEN 1 END) as WcmTechPlatform
                 FROM {componentsTableName}
-                WHERE TargetName IN ('Helios', 'Marvin', 'WCM')
-                GROUP BY TargetName
-                ORDER BY TargetName";
+                WHERE [TargetPlatform] IN ('Helios', 'Marvin', 'WCM')
+                GROUP BY [TargetPlatform]
+                ORDER BY [TargetPlatform]";
             
             using (var cmd = new SqlCommand(statusSql, connection))
             using (var reader = cmd.ExecuteReader())
             {
                 while (reader.Read())
                 {
-                    var target = reader["TargetName"].ToString();
-                    var total = reader["Total"];
-                    var withType = reader["WithType"];
-                    var withDesc = reader["WithDesc"];
+                    var platform = reader["TargetPlatform"].ToString();
+                    var total = reader["TotalRecords"];
+                    var marvinCompSpec = reader["MarvinCompSpec"];
+                    var marvinPlatform = reader["MarvinPlatform"];
+                    var wcmChannelName = reader["WcmChannelName"];
+                    var wcmTechPlatform = reader["WcmTechPlatform"];
                     
-                    logger.Info($"{target,7}: {withType,3}/{total,3} with ComponentType, {withDesc,3}/{total,3} with Description");
+                    logger.Info($"{platform,7}: {total,3} total");
+                    if (platform == "Marvin")
+                    {
+                        logger.Info($"         compSpec: {marvinCompSpec,3}/{total,3}, platform: {marvinPlatform,3}/{total,3}");
+                    }
+                    else if (platform == "WCM")
+                    {
+                        logger.Info($"         ChannelName: {wcmChannelName,3}/{total,3}, TechPlatform: {wcmTechPlatform,3}/{total,3}");
+                    }
                 }
             }
         }
