@@ -1,10 +1,22 @@
 D:\Se-DMS\APPS\PlatformInventoryApp\bin\Debug>PlatformInventoryApp --update-components
-19:08:26.2464 INFO: Application started
-19:08:26.2890 INFO: Loading configuration
-19:08:26.2996 INFO: Configuration loaded - Deployments Table: [DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY], Components Table: , PageSize: 500, Delay: 1000ms
-19:08:26.2996 INFO: Starting component inventory update from deployment data...
-19:08:26.3311 INFO: Starting component inventory update from deployment data
-19:08:26.5431 ERROR: Application failed System.Data.SqlClient.SqlException (0x80131904): Incorrect syntax near the keyword 'WHERE'.
+19:25:23.6809 INFO: Application started
+19:25:23.7235 INFO: Loading configuration
+19:25:23.7333 INFO: Raw config - TableName: '[DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY]'
+19:25:23.7333 INFO: Raw config - ComponentsTableName: ''
+19:25:23.7499 WARN: Fixed tableName to deployments table
+19:25:23.7499 WARN: Fixed componentsTableName to inventory table
+19:25:23.7499 INFO: Configuration loaded - Deployments Table: [DMAS].[dbo].[TB_ODS_ARTIFACT_DEPLOYMENTS], Components Table: [DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY], PageSize: 500, Delay: 1000ms
+19:25:23.7695 INFO: Starting component inventory update from deployment data...
+19:25:23.8011 INFO: Starting component inventory update from deployment data
+19:25:23.9919 ERROR: Application failed System.Data.SqlClient.SqlException (0x80131904): Invalid column name 'TargetName'.
+Invalid column name 'TargetName'.
+Invalid column name 'Code'.
+Invalid column name 'ScanProjectCode'.
+Invalid column name 'TargetName'.
+Invalid column name 'Type'.
+Invalid column name 'PlatformName'.
+Invalid column name 'ComponentType'.
+Invalid column name 'Description'.
    at System.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
    at System.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
    at System.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
@@ -21,11 +33,11 @@ D:\Se-DMS\APPS\PlatformInventoryApp\bin\Debug>PlatformInventoryApp --update-comp
    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
    at System.Runtime.CompilerServices.TaskAwaiter`1.GetResult()
-   at ArtifactDeploymentsApp.Program.<UpdateComponentsFromDeployments>d__14.MoveNext() in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 195
+   at ArtifactDeploymentsApp.Program.<UpdateComponentsFromDeployments>d__14.MoveNext() in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 215
 --- End of stack trace from previous location where exception was thrown ---
    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
    at System.Runtime.CompilerServices.TaskAwaiter.GetResult()
    at ArtifactDeploymentsApp.Program.<Main>d__11.MoveNext() in D:\Se-DMS\APPS\PlatformInventoryApp\Program.cs:line 80
-ClientConnectionId:13519dcb-ef2e-457a-ae59-2f65dd918137
-Error Number:156,State:1,Class:15
+ClientConnectionId:e1c948af-9342-4c01-b43c-d1885c217331
+Error Number:207,State:1,Class:16
