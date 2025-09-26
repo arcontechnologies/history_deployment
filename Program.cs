@@ -198,14 +198,14 @@ namespace ArtifactDeploymentsApp
                         {
                             components.Add(new ComponentRecord
                             {
-                                Id = int.Parse(reader.GetString("Id")),
-                                Code = reader.GetString("Code"),
-                                ScanProjectCode = reader.IsDBNull("ScanProjectCode") ? null : reader.GetString("ScanProjectCode"),
-                                TargetName = reader.IsDBNull("TargetName") ? null : reader.GetString("TargetName"),
-                                Type = reader.IsDBNull("Type") ? null : reader.GetString("Type"),
-                                PlatformName = reader.IsDBNull("PlatformName") ? null : reader.GetString("PlatformName"),
-                                ComponentType = reader.IsDBNull("ComponentType") ? null : reader.GetString("ComponentType"),
-                                Description = reader.IsDBNull("Description") ? null : reader.GetString("Description")
+                                Id = reader["Id"]?.ToString(),
+                                Code = reader["Code"]?.ToString(),
+                                ScanProjectCode = reader["ScanProjectCode"]?.ToString(),
+                                TargetName = reader["TargetName"]?.ToString(),
+                                Type = reader["Type"]?.ToString(),
+                                PlatformName = reader["PlatformName"]?.ToString(),
+                                ComponentType = reader["ComponentType"]?.ToString(),
+                                Description = reader["Description"]?.ToString()
                             });
                         }
                     }
@@ -225,18 +225,18 @@ namespace ArtifactDeploymentsApp
                         {
                             deployments.Add(new DeploymentRecord
                             {
-                                ArtifactId = reader.IsDBNull("ArtifactId") ? null : reader.GetString("ArtifactId"),
-                                TargetPlatform = reader.IsDBNull("TargetPlatform") ? null : reader.GetString("TargetPlatform"),
-                                Environment = reader.IsDBNull("Environment") ? null : reader.GetString("Environment"),
-                                CompSpec = reader.IsDBNull("TargetDetails_compSpec") ? null : reader.GetString("TargetDetails_compSpec"),
-                                CompSpecVersion = reader.IsDBNull("TargetDetails_compSpecVersion") ? null : reader.GetString("TargetDetails_compSpecVersion"),
-                                LogicEnv = reader.IsDBNull("TargetDetails_logic_env") ? null : reader.GetString("TargetDetails_logic_env"),
-                                Platform = reader.IsDBNull("TargetDetails_platform") ? null : reader.GetString("TargetDetails_platform"),
-                                ChannelName = reader.IsDBNull("TargetDetails_ChannelName") ? null : reader.GetString("TargetDetails_ChannelName"),
-                                TechPlatform = reader.IsDBNull("TargetDetails_TechPlatform") ? null : reader.GetString("TargetDetails_TechPlatform"),
-                                AppCode = reader.IsDBNull("TargetDetails_app_code") ? null : reader.GetString("TargetDetails_app_code"),
-                                Service = reader.IsDBNull("TargetDetails_service") ? null : reader.GetString("TargetDetails_service"),
-                                DeployedOn = reader.IsDBNull("DeployedOn") ? null : reader.GetString("DeployedOn")
+                                ArtifactId = reader["ArtifactId"]?.ToString(),
+                                TargetPlatform = reader["TargetPlatform"]?.ToString(),
+                                Environment = reader["Environment"]?.ToString(),
+                                CompSpec = reader["TargetDetails_compSpec"]?.ToString(),
+                                CompSpecVersion = reader["TargetDetails_compSpecVersion"]?.ToString(),
+                                LogicEnv = reader["TargetDetails_logic_env"]?.ToString(),
+                                Platform = reader["TargetDetails_platform"]?.ToString(),
+                                ChannelName = reader["TargetDetails_ChannelName"]?.ToString(),
+                                TechPlatform = reader["TargetDetails_TechPlatform"]?.ToString(),
+                                AppCode = reader["TargetDetails_app_code"]?.ToString(),
+                                Service = reader["TargetDetails_service"]?.ToString(),
+                                DeployedOn = reader["DeployedOn"]?.ToString()
                             });
                         }
                     }
@@ -900,7 +900,7 @@ namespace ArtifactDeploymentsApp
     // New data classes for component correlation
     public class ComponentRecord
     {
-        public int Id { get; set; }
+        public string Id { get; set; }
         public string Code { get; set; }
         public string ScanProjectCode { get; set; }
         public string TargetName { get; set; }
