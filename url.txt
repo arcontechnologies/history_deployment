@@ -1,5 +1,8 @@
 https://platform-inventory.be.net.intra/service/v1/components?sort=-LastActivityOn
 
+https://platform-inventory.be.net.intra/service/v1/artifact-deployments?sort=-DeployedOn
+
+
 limit=500&offset=0 => the first 500 records
 limit=500&offset=500 => records 500 to 1000
 
