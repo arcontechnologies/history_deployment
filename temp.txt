@@ -1,9 +1,0 @@
-Feature	TLS (what you use now)	mTLS
-Server certificate required	✅ Yes	✅ Yes
-Client certificate required	❌ No	✅ Yes
-Encryption	✅ Yes	✅ Yes
-Client authentication method	HTTP headers (API key, token, etc.)	TLS handshake (client cert)
-Complexity	Low	Higher (certificate management)
-
-If your API provider does not explicitly require mTLS, you don’t need to change anything.
-If they do, you must:
