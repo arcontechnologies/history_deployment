@@ -30,6 +30,7 @@ namespace ArtifactDeploymentsApp
         private static int maxRetries;
         private static int retryDelayMs;
         private static int delayBetweenChunksMs;
+        private static int nbDays;
 
         static async Task<int> Main(string[] args)
         {
@@ -67,6 +68,12 @@ namespace ArtifactDeploymentsApp
                         await LoadDaily();
                         await SaveToXlsx();
                         logger.Info("Daily operations completed");
+                        break;
+
+                    case "--delta":
+                        logger.Info("Starting delta operations...");
+                        await LoadDelta();
+                        logger.Info("Delta operations completed");
                         break;
 
                     case "--save":
@@ -119,6 +126,7 @@ namespace ArtifactDeploymentsApp
             Console.WriteLine("  --create             Create SQL Server table");
             Console.WriteLine("  --history            Delete all records and load complete history from API");
             Console.WriteLine("  --daily              Load today's data and export to Excel");
+            Console.WriteLine("  --delta              Delete and reload data for the past N days (configured in App.config) and export to Excel");
             Console.WriteLine("  --save               Export current database data to Excel file");
             Console.WriteLine("  --update-components  Update component inventory with deployment data");
             Console.WriteLine("  --help               Show this help information");
@@ -127,6 +135,7 @@ namespace ArtifactDeploymentsApp
             Console.WriteLine("  ArtifactDeploymentsApp --create");
             Console.WriteLine("  ArtifactDeploymentsApp --history");
             Console.WriteLine("  ArtifactDeploymentsApp --daily");
+            Console.WriteLine("  ArtifactDeploymentsApp --delta");
             Console.WriteLine("  ArtifactDeploymentsApp --update-components");
             Console.WriteLine("  ArtifactDeploymentsApp --save");
             Console.WriteLine();
@@ -170,8 +179,9 @@ namespace ArtifactDeploymentsApp
             maxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
             retryDelayMs = int.Parse(ConfigurationManager.AppSettings["RetryDelayMs"]);
             delayBetweenChunksMs = int.Parse(ConfigurationManager.AppSettings["DelayBetweenChunksMs"] ?? "10000");
+            nbDays = int.Parse(ConfigurationManager.AppSettings["NbDays"] ?? "7");
 
-            logger.Info($"Configuration loaded - Deployments Table: {tableName}, Components Table: {componentsTableName}, PageSize: {pageSize}, Delay: {delayBetweenChunksMs}ms");
+            logger.Info($"Configuration loaded - Deployments Table: {tableName}, Components Table: {componentsTableName}, PageSize: {pageSize}, Delay: {delayBetweenChunksMs}ms, NbDays: {nbDays}");
         }
 
         private static async Task UpdateComponentsFromDeployments()
@@ -842,6 +852,108 @@ namespace ArtifactDeploymentsApp
 
             logger.Info($"Excel file saved to: {xlsxFilePath}");
         }
+
+        private static async Task LoadDelta()
+        {
+            logger.Info($"Starting delta load for the past {nbDays} days");
+
+            var endDate = DateTime.Now.Date;
+            var startDate = endDate.AddDays(-nbDays);
+
+            logger.Info($"Delta date range: {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}");
+
+            // Step 1: Delete all data in the date range
+            DeleteDateRangeRecords(startDate, endDate);
+
+            // Step 2: Load data for the date range
+            int offset = 0;
+            int totalRecordsProcessed = 0;
+            bool continueLoading = true;
+
+            while (continueLoading)
+            {
+                try
+                {
+                    logger.Info($"Processing delta page with offset: {offset}");
+
+                    var apiResponse = await GetApiDataWithRetry(offset);
+                    if (apiResponse?.List == null || !apiResponse.List.Any())
+                    {
+                        break;
+                    }
+
+                    // Filter records within the date range
+                    var deltaRecords = apiResponse.List
+                        .Where(x => x.DeployedOn.HasValue && 
+                                   x.DeployedOn.Value.Date >= startDate && 
+                                   x.DeployedOn.Value.Date <= endDate)
+                        .ToList();
+
+                    if (deltaRecords.Any())
+                    {
+                        await BulkInsertData(deltaRecords);
+                        totalRecordsProcessed += deltaRecords.Count;
+                    }
+
+                    // Check if we've passed the date range
+                    var hasOlderRecords = apiResponse.List
+                        .Any(x => x.DeployedOn.HasValue && x.DeployedOn.Value.Date < startDate);
+
+                    if (hasOlderRecords || apiResponse.PageInfo?.IsLastPage == true)
+                    {
+                        continueLoading = false;
+                    }
+                    else
+                    {
+                        offset += pageSize;
+                    }
+
+                    logger.Info($"Processed {deltaRecords.Count} delta records. Total: {totalRecordsProcessed}");
+
+                    // Add delay between chunks to avoid overwhelming the server
+                    if (continueLoading && delayBetweenChunksMs > 0)
+                    {
+                        logger.Debug($"Waiting {delayBetweenChunksMs}ms before next API call");
+                        await Task.Delay(delayBetweenChunksMs);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, $"Error processing delta offset {offset}");
+                    throw;
+                }
+            }
+
+            logger.Info($"Delta load completed. Total records for date range: {totalRecordsProcessed}");
+
+            // Step 3: Save to Excel
+            await SaveToXlsx();
+        }
+
+        private static void DeleteDateRangeRecords(DateTime startDate, DateTime endDate)
+        {
+            logger.Info($"Deleting existing records from {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}");
+
+            var deleteQuery = $@"
+                DELETE FROM {tableName} 
+                WHERE TRY_CONVERT(DATE, [DeployedOn]) >= @StartDate 
+                  AND TRY_CONVERT(DATE, [DeployedOn]) <= @EndDate";
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand(deleteQuery, connection))
+                {
+                    command.CommandTimeout = 300; // 5 minutes for large deletes
+                    command.Parameters.AddWithValue("@StartDate", startDate);
+                    command.Parameters.AddWithValue("@EndDate", endDate);
+                    
+                    var deletedRows = command.ExecuteNonQuery();
+                    logger.Info($"Deleted {deletedRows} existing records in date range");
+                }
+            }
+        }
+
         private static void ExecuteSqlCommand(string commandText)
         {
             using (var connection = new SqlConnection(connectionString))
