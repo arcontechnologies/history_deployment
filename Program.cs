@@ -19,7 +19,7 @@ namespace ArtifactDeploymentsApp
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private static readonly HttpClient httpClient = new HttpClient();
-        
+
         // Configuration values
         private static string connectionString;
         private static string apiUrl;
@@ -137,39 +137,39 @@ namespace ArtifactDeploymentsApp
         private static void LoadConfiguration()
         {
             logger.Info("Loading configuration");
-            
+
             var dbServer = ConfigurationManager.AppSettings["DbServer"];
             var database = ConfigurationManager.AppSettings["Database"];
             connectionString = $"Server={dbServer};Database={database};Integrated Security=true;Connection Timeout=120;";
-            
+
             apiUrl = ConfigurationManager.AppSettings["ApiUrl"];
-            
+
             // Fix the configuration reading - explicitly set correct values
             tableName = ConfigurationManager.AppSettings["TableName"];
             componentsTableName = ConfigurationManager.AppSettings["ComponentsTableName"];
-            
+
             // Debug what we're actually reading
             logger.Info($"Raw config - TableName: '{ConfigurationManager.AppSettings["TableName"]}'");
             logger.Info($"Raw config - ComponentsTableName: '{ConfigurationManager.AppSettings["ComponentsTableName"]}'");
-            
+
             // Force correct values if config is wrong
             if (string.IsNullOrEmpty(tableName) || tableName.Contains("PLATFORM_INVENTORY"))
             {
-                tableName = "[DMAS].[dbo].[TB_ODS_ARTIFACT_DEPLOYMENTS]";
+                tableName = "[DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY]";
                 logger.Warn("Fixed tableName to deployments table");
             }
-            
+
             if (string.IsNullOrEmpty(componentsTableName) || !componentsTableName.Contains("PLATFORM_INVENTORY"))
             {
                 componentsTableName = "[DMAS].[dbo].[TB_ODS_PLATFORM_INVENTORY]";
                 logger.Warn("Fixed componentsTableName to inventory table");
             }
-            
+
             xlsxFilePath = ConfigurationManager.AppSettings["XlsxFilePath"];
             pageSize = int.Parse(ConfigurationManager.AppSettings["PageSize"]);
             maxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
             retryDelayMs = int.Parse(ConfigurationManager.AppSettings["RetryDelayMs"]);
-            delayBetweenChunksMs = int.Parse(ConfigurationManager.AppSettings["DelayBetweenChunksMs"] ?? "1000");
+            delayBetweenChunksMs = int.Parse(ConfigurationManager.AppSettings["DelayBetweenChunksMs"] ?? "10000");
 
             logger.Info($"Configuration loaded - Deployments Table: {tableName}, Components Table: {componentsTableName}, PageSize: {pageSize}, Delay: {delayBetweenChunksMs}ms");
         }
@@ -177,17 +177,17 @@ namespace ArtifactDeploymentsApp
         private static async Task UpdateComponentsFromDeployments()
         {
             logger.Info("Starting SIMPLE fix for empty denormalized TargetDetails fields");
-            
+
             try
             {
                 using (var connection = new SqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
-                    
+
                     // Show status before fix
                     logger.Info("=== STATUS BEFORE FIX ===");
                     ShowEmptyFieldsStatus(connection);
-                    
+
                     // STEP 1: Fix MARVIN records with empty denormalized fields
                     logger.Info("Step 1: Fixing MARVIN records...");
                     var marvinSql = $@"
@@ -209,14 +209,14 @@ namespace ArtifactDeploymentsApp
                           AND ([TargetDetails_compSpec] IS NULL OR [TargetDetails_compSpec] = '' 
                                OR [TargetDetails_platform] IS NULL OR [TargetDetails_platform] = '')
                           AND [TargetDetails] IS NOT NULL AND [TargetDetails] != ''";
-                    
+
                     using (var cmd = new SqlCommand(marvinSql, connection))
                     {
                         cmd.CommandTimeout = 300;
                         var marvinUpdated = await cmd.ExecuteNonQueryAsync();
                         logger.Info($"✓ Updated {marvinUpdated} MARVIN records");
                     }
-                    
+
                     // STEP 2: Fix WCM records with empty denormalized fields
                     logger.Info("Step 2: Fixing WCM records...");
                     var wcmSql = $@"
@@ -238,19 +238,19 @@ namespace ArtifactDeploymentsApp
                           AND ([TargetDetails_ChannelName] IS NULL OR [TargetDetails_ChannelName] = '' 
                                OR [TargetDetails_TechPlatform] IS NULL OR [TargetDetails_TechPlatform] = '')
                           AND [TargetDetails] IS NOT NULL AND [TargetDetails] != ''";
-                    
+
                     using (var cmd = new SqlCommand(wcmSql, connection))
                     {
                         cmd.CommandTimeout = 300;
                         var wcmUpdated = await cmd.ExecuteNonQueryAsync();
                         logger.Info($"✓ Updated {wcmUpdated} WCM records");
                     }
-                    
+
                     // Show status after fix
                     logger.Info("=== STATUS AFTER FIX ===");
                     ShowEmptyFieldsStatus(connection);
                 }
-                
+
                 logger.Info("Denormalization fix completed successfully");
             }
             catch (Exception ex)
@@ -274,7 +274,7 @@ namespace ArtifactDeploymentsApp
                 WHERE [TargetPlatform] IN ('Helios', 'Marvin', 'WCM')
                 GROUP BY [TargetPlatform]
                 ORDER BY [TargetPlatform]";
-            
+
             using (var cmd = new SqlCommand(statusSql, connection))
             using (var reader = cmd.ExecuteReader())
             {
@@ -286,7 +286,7 @@ namespace ArtifactDeploymentsApp
                     var marvinPlatform = reader["MarvinPlatform"];
                     var wcmChannelName = reader["WcmChannelName"];
                     var wcmTechPlatform = reader["WcmTechPlatform"];
-                    
+
                     logger.Info($"{platform,7}: {total,3} total");
                     if (platform == "Marvin")
                     {
@@ -303,7 +303,7 @@ namespace ArtifactDeploymentsApp
         private static void CreateSqlTable()
         {
             logger.Info("Creating SQL table if not exists");
-            
+
             var createTableScript = $@"
                 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='{tableName}' AND xtype='U')
                 CREATE TABLE {tableName} (
@@ -346,7 +346,7 @@ namespace ArtifactDeploymentsApp
         private static async Task LoadHistory()
         {
             logger.Info("Starting history load");
-            
+
             int offset = 0;
             bool isLastPage = false;
             int totalRecordsProcessed = 0;
@@ -356,7 +356,7 @@ namespace ArtifactDeploymentsApp
                 try
                 {
                     logger.Info($"Processing page with offset: {offset}");
-                    
+
                     var apiResponse = await GetApiDataWithRetry(offset);
                     if (apiResponse?.List == null || !apiResponse.List.Any())
                     {
@@ -365,13 +365,13 @@ namespace ArtifactDeploymentsApp
                     }
 
                     await BulkInsertData(apiResponse.List);
-                    
+
                     totalRecordsProcessed += apiResponse.List.Count;
                     isLastPage = apiResponse.PageInfo?.IsLastPage ?? true;
                     offset += pageSize;
 
                     logger.Info($"Processed {apiResponse.List.Count} records. Total: {totalRecordsProcessed}");
-                    
+
                     // Add delay between chunks to avoid overwhelming the server
                     if (!isLastPage && delayBetweenChunksMs > 0)
                     {
@@ -391,16 +391,16 @@ namespace ArtifactDeploymentsApp
         private static async Task LoadDaily()
         {
             logger.Info("Starting daily load");
-            
+
             var currentDate = DateTime.Now.Date;
-            
+
             // Check if data already exists for current date
             if (HasDataForDate(currentDate))
             {
                 logger.Info($"Data already exists for {currentDate:yyyy-MM-dd}. Skipping daily load.");
                 return;
             }
-            
+
             int offset = 0;
             int totalRecordsProcessed = 0;
             bool continueLoading = true;
@@ -413,7 +413,7 @@ namespace ArtifactDeploymentsApp
                 try
                 {
                     logger.Info($"Processing daily page with offset: {offset}");
-                    
+
                     var apiResponse = await GetApiDataWithRetry(offset);
                     if (apiResponse?.List == null || !apiResponse.List.Any())
                     {
@@ -433,7 +433,7 @@ namespace ArtifactDeploymentsApp
                     // Check if we've passed today's records
                     var hasOlderRecords = apiResponse.List
                         .Any(x => x.DeployedOn.HasValue && x.DeployedOn.Value.Date < currentDate);
-                    
+
                     if (hasOlderRecords || apiResponse.PageInfo?.IsLastPage == true)
                     {
                         continueLoading = false;
@@ -444,7 +444,7 @@ namespace ArtifactDeploymentsApp
                     }
 
                     logger.Info($"Processed {todayRecords.Count} today's records. Total today: {totalRecordsProcessed}");
-                    
+
                     // Add delay between chunks to avoid overwhelming the server
                     if (continueLoading && delayBetweenChunksMs > 0)
                     {
@@ -465,7 +465,7 @@ namespace ArtifactDeploymentsApp
         private static bool HasDataForDate(DateTime date)
         {
             logger.Info($"Checking if data exists for {date:yyyy-MM-dd}");
-            
+
             var dateString = date.ToString("yyyy-MM-dd");
             var checkQuery = $@"
                 SELECT COUNT(1) 
@@ -479,7 +479,7 @@ namespace ArtifactDeploymentsApp
                 {
                     command.Parameters.AddWithValue("@DatePattern", dateString + "%");
                     var count = (int)command.ExecuteScalar();
-                    
+
                     logger.Info($"Found {count} existing records for {date:yyyy-MM-dd}");
                     return count > 0;
                 }
@@ -494,21 +494,21 @@ namespace ArtifactDeploymentsApp
                 {
                     var url = $"{apiUrl}&limit={pageSize}&offset={offset}";
                     logger.Debug($"Calling API: {url}");
-                    
+
                     var response = await httpClient.GetStringAsync(url);
-                    
+
                     // Log first 500 characters of response for debugging
                     logger.Debug($"API Response (first 500 chars): {response.Substring(0, Math.Min(response.Length, 500))}");
-                    
+
                     var settings = new JsonSerializerSettings
                     {
                         NullValueHandling = NullValueHandling.Ignore,
                         MissingMemberHandling = MissingMemberHandling.Ignore,
                         Error = HandleDeserializationError
                     };
-                    
+
                     var apiResponse = JsonConvert.DeserializeObject<ApiResponse>(response, settings);
-                    
+
                     logger.Debug($"API call successful. Received {apiResponse?.List?.Count ?? 0} records");
                     return apiResponse;
                 }
@@ -516,17 +516,17 @@ namespace ArtifactDeploymentsApp
                 {
                     attempt++;
                     logger.Error(ex, $"API call failed (attempt {attempt}/{maxRetries})");
-                    
+
                     if (attempt >= maxRetries)
                     {
                         logger.Fatal($"API call failed after {maxRetries} attempts");
                         throw;
                     }
-                    
+
                     await Task.Delay(retryDelayMs);
                 }
             }
-            
+
             return null;
         }
 
@@ -538,9 +538,9 @@ namespace ArtifactDeploymentsApp
         private static async Task BulkInsertData(List<ArtifactDeploymentData> artifacts)
         {
             logger.Info($"Starting bulk insert for {artifacts.Count} records");
-            
+
             var dataTable = CreateDataTable();
-            
+
             foreach (var artifact in artifacts)
             {
                 var row = dataTable.NewRow();
@@ -551,7 +551,7 @@ namespace ArtifactDeploymentsApp
             using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
-                
+
                 using (var bulkCopy = new SqlBulkCopy(connection)
                 {
                     DestinationTableName = tableName,
@@ -563,17 +563,17 @@ namespace ArtifactDeploymentsApp
                     {
                         bulkCopy.ColumnMappings.Add(column.ColumnName, column.ColumnName);
                     }
-                    
+
                     await bulkCopy.WriteToServerAsync(dataTable);
                 }
             }
-            
+
             logger.Info("Bulk insert completed");
         }
         private static DataTable CreateDataTable()
         {
             var dataTable = new DataTable();
-            
+
             // Add columns based on denormalized JSON structure - all VARCHAR(1000)
             dataTable.Columns.Add("ArtifactGroup", typeof(string));
             dataTable.Columns.Add("ArtifactId", typeof(string));
@@ -585,10 +585,10 @@ namespace ArtifactDeploymentsApp
             dataTable.Columns.Add("Id", typeof(string));
             dataTable.Columns.Add("TargetPlatform", typeof(string));
             dataTable.Columns.Add("Version", typeof(string));
-            
+
             // Complete TargetDetails as JSON (for future/unknown platforms)
             dataTable.Columns.Add("TargetDetails", typeof(string));
-            
+
             // Denormalized TargetDetails columns for known platforms
             // Helios platform fields
             dataTable.Columns.Add("TargetDetails_appArtifactID", typeof(string));
@@ -599,19 +599,19 @@ namespace ArtifactDeploymentsApp
             dataTable.Columns.Add("TargetDetails_confVersion", typeof(string));
             dataTable.Columns.Add("TargetDetails_deployScope", typeof(string));
             dataTable.Columns.Add("TargetDetails_landscape", typeof(string));
-            
+
             // Marvin platform fields
             dataTable.Columns.Add("TargetDetails_compSpec", typeof(string));
             dataTable.Columns.Add("TargetDetails_compSpecVersion", typeof(string));
             dataTable.Columns.Add("TargetDetails_logic_env", typeof(string));
             dataTable.Columns.Add("TargetDetails_platform", typeof(string));
-            
+
             // WCM platform fields
             dataTable.Columns.Add("TargetDetails_ChannelName", typeof(string));
             dataTable.Columns.Add("TargetDetails_TechPlatform", typeof(string));
             dataTable.Columns.Add("TargetDetails_app_code", typeof(string));
             dataTable.Columns.Add("TargetDetails_service", typeof(string));
-            
+
             return dataTable;
         }
         private static void PopulateDataRow(DataRow row, ArtifactDeploymentData artifact)
@@ -626,23 +626,23 @@ namespace ArtifactDeploymentsApp
             row["Id"] = artifact.Id?.ToString() ?? string.Empty;
             row["TargetPlatform"] = artifact.TargetPlatform ?? string.Empty;
             row["Version"] = artifact.Version ?? string.Empty;
-            
+
             // Store complete TargetDetails as JSON (for future/unknown platforms)
             row["TargetDetails"] = ConvertToString(artifact.TargetDetails);
-            
+
             // Denormalize TargetDetails object into separate columns for known platforms
             var targetDetails = ExtractTargetDetails(artifact.TargetDetails);
-            
+
             // Check for unknown platforms and log them
             var knownPlatforms = new[] { "Helios", "Marvin", "WCM" };
-            if (!string.IsNullOrEmpty(artifact.TargetPlatform) && 
+            if (!string.IsNullOrEmpty(artifact.TargetPlatform) &&
                 !knownPlatforms.Contains(artifact.TargetPlatform, StringComparer.OrdinalIgnoreCase))
             {
                 logger.Warn($"Unknown TargetPlatform encountered: '{artifact.TargetPlatform}'. " +
                            $"TargetDetails: {ConvertToString(artifact.TargetDetails)}. " +
                            $"Consider updating the application to support this platform.");
             }
-            
+
             // Helios platform fields
             row["TargetDetails_appArtifactID"] = GetValueOrEmpty(targetDetails, "appArtifactID");
             row["TargetDetails_appGroupID"] = GetValueOrEmpty(targetDetails, "appGroupID");
@@ -652,31 +652,31 @@ namespace ArtifactDeploymentsApp
             row["TargetDetails_confVersion"] = GetValueOrEmpty(targetDetails, "confVersion");
             row["TargetDetails_deployScope"] = GetValueOrEmpty(targetDetails, "deployScope");
             row["TargetDetails_landscape"] = GetValueOrEmpty(targetDetails, "landscape");
-            
+
             // Marvin platform fields
             row["TargetDetails_compSpec"] = GetValueOrEmpty(targetDetails, "compSpec");
             row["TargetDetails_compSpecVersion"] = GetValueOrEmpty(targetDetails, "compSpecVersion");
             row["TargetDetails_logic_env"] = GetValueOrEmpty(targetDetails, "logic_env");
             row["TargetDetails_platform"] = GetValueOrEmpty(targetDetails, "platform");
-            
+
             // WCM platform fields
             row["TargetDetails_ChannelName"] = GetValueOrEmpty(targetDetails, "ChannelName");
             row["TargetDetails_TechPlatform"] = GetValueOrEmpty(targetDetails, "TechPlatform");
             row["TargetDetails_app_code"] = GetValueOrEmpty(targetDetails, "app_code");
             row["TargetDetails_service"] = GetValueOrEmpty(targetDetails, "service");
-            
+
             // Log if there are unknown fields in TargetDetails that we're not capturing
             var knownFields = new[]
             {
                 // Helios fields
-                "appArtifactID", "appGroupID", "appVersion", "confArtifactID", "confGroupID", 
+                "appArtifactID", "appGroupID", "appVersion", "confArtifactID", "confGroupID",
                 "confVersion", "deployScope", "landscape",
                 // Marvin fields  
                 "compSpec", "compSpecVersion", "logic_env", "platform",
                 // WCM fields
                 "ChannelName", "TechPlatform", "app_code", "service"
             };
-            
+
             var unknownFields = targetDetails.Keys.Where(k => !knownFields.Contains(k) && k != "_raw").ToList();
             if (unknownFields.Any())
             {
@@ -694,10 +694,10 @@ namespace ArtifactDeploymentsApp
         private static Dictionary<string, string> ExtractTargetDetails(object targetDetails)
         {
             var result = new Dictionary<string, string>();
-            
+
             if (targetDetails == null)
                 return result;
-                
+
             try
             {
                 // If it's already a dictionary/JObject, convert it
@@ -737,16 +737,16 @@ namespace ArtifactDeploymentsApp
                 // Fallback: serialize the entire object as JSON string
                 result["_raw"] = ConvertToString(targetDetails);
             }
-            
+
             return result;
         }
 
         private static string ConvertToString(object value)
         {
             if (value == null) return string.Empty;
-            
+
             if (value is string) return (string)value;
-            
+
             // If it's an object, serialize it to JSON string
             try
             {
@@ -761,7 +761,7 @@ namespace ArtifactDeploymentsApp
         private static void DeleteCurrentDateRecords(DateTime currentDate)
         {
             logger.Info($"Deleting existing records for {currentDate:yyyy-MM-dd}");
-            
+
             var dateString = currentDate.ToString("yyyy-MM-dd");
             var deleteQuery = $@"
                 DELETE FROM {tableName} 
@@ -782,7 +782,7 @@ namespace ArtifactDeploymentsApp
         private static void DeleteAllRecords()
         {
             logger.Info("Deleting all existing records from table");
-            
+
             var deleteQuery = $"DELETE FROM {tableName}";
 
             using (var connection = new SqlConnection(connectionString))
@@ -800,10 +800,10 @@ namespace ArtifactDeploymentsApp
         private static async Task SaveToXlsx()
         {
             logger.Info("Starting Excel export");
-            
+
             var query = $"SELECT * FROM {tableName} ORDER BY [DeployedOn] DESC";
             var dataTable = new DataTable();
-            
+
             using (var connection = new SqlConnection(connectionString))
             {
                 await connection.OpenAsync();
@@ -819,24 +819,24 @@ namespace ArtifactDeploymentsApp
             {
                 var worksheet = workbook.Worksheets.Add("Artifact Deployments");
                 worksheet.Cell(1, 1).InsertTable(dataTable.AsEnumerable());
-                
+
                 // Format the table
                 var table = worksheet.Tables.FirstOrDefault();
                 if (table != null)
                 {
                     table.Theme = XLTableTheme.TableStyleMedium2;
                 }
-                
+
                 // Auto-fit columns
                 worksheet.Columns().AdjustToContents();
-                
+
                 // Ensure directory exists
                 var directory = Path.GetDirectoryName(xlsxFilePath);
                 if (!Directory.Exists(directory))
                 {
                     Directory.CreateDirectory(directory);
                 }
-                
+
                 workbook.SaveAs(xlsxFilePath);
             }
 
