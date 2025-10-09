@@ -884,8 +884,8 @@ namespace ArtifactDeploymentsApp
 
                     // Filter records within the date range
                     var deltaRecords = apiResponse.List
-                        .Where(x => x.DeployedOn.HasValue && 
-                                   x.DeployedOn.Value.Date >= startDate && 
+                        .Where(x => x.DeployedOn.HasValue &&
+                                   x.DeployedOn.Value.Date >= startDate &&
                                    x.DeployedOn.Value.Date <= endDate)
                         .ToList();
 
@@ -947,7 +947,7 @@ namespace ArtifactDeploymentsApp
                     command.CommandTimeout = 300; // 5 minutes for large deletes
                     command.Parameters.AddWithValue("@StartDate", startDate);
                     command.Parameters.AddWithValue("@EndDate", endDate);
-                    
+
                     var deletedRows = command.ExecuteNonQuery();
                     logger.Info($"Deleted {deletedRows} existing records in date range");
                 }
